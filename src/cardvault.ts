@@ -34,11 +34,15 @@ export async function searchCard(name: string): Promise<Card | null> {
   const data = (await res.json()) as SearchResponse;
   if (!data.results || data.results.length === 0) return null;
 
-  // Prefer an exact name match, fall back to first result
-  const exact = data.results.find(
-    (c) => c.printed_name.toLowerCase() === name.toLowerCase()
+  const q = name.toLowerCase();
+  const exact = data.results.find((c) => c.printed_name.toLowerCase() === q);
+  const startsWith = data.results.find((c) =>
+    c.printed_name.toLowerCase().startsWith(q)
   );
-  return exact ?? data.results[0];
+  const includes = data.results.find((c) =>
+    c.printed_name.toLowerCase().includes(q)
+  );
+  return exact ?? startsWith ?? includes ?? null;
 }
 
 export function getImageUrl(card: Card): string | null {
