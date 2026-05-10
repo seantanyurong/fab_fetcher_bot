@@ -25,7 +25,12 @@ interface SearchResponse {
   count: number;
 }
 
-export async function searchCard(name: string): Promise<Card | null> {
+export interface SearchResult {
+  card: Card;
+  fuzzy: boolean;
+}
+
+export async function searchCard(name: string): Promise<SearchResult | null> {
   const url = `${BASE_URL}/advanced-search/?q=${encodeURIComponent(name)}&page_size=10&orderby=name`;
 
   const res = await fetch(url);
@@ -35,14 +40,12 @@ export async function searchCard(name: string): Promise<Card | null> {
   if (!data.results || data.results.length === 0) return null;
 
   const q = name.toLowerCase();
-  const exact = data.results.find((c) => c.printed_name.toLowerCase() === q);
-  const startsWith = data.results.find((c) =>
-    c.printed_name.toLowerCase().startsWith(q)
-  );
-  const includes = data.results.find((c) =>
-    c.printed_name.toLowerCase().includes(q)
-  );
-  return exact ?? startsWith ?? includes ?? null;
+  const topResult = data.results[0];
+  const isClose =
+    topResult.printed_name.toLowerCase().includes(q) ||
+    q.includes(topResult.printed_name.toLowerCase().split(",")[0].trim());
+
+  return { card: topResult, fuzzy: !isClose };
 }
 
 export function getImageUrl(card: Card): string | null {

@@ -22,16 +22,19 @@ bot.on("message:text", async (ctx) => {
 
   for (const name of names) {
     try {
-      const card = await searchCard(name);
+      const result = await searchCard(name);
 
-      if (!card) {
+      if (!result) {
         await ctx.reply(`No card found for "${name}"`, {
           reply_parameters: { message_id: ctx.message.message_id },
         });
         continue;
       }
 
-      const caption = formatCardCaption(card);
+      const { card, fuzzy } = result;
+      const caption =
+        (fuzzy ? `<i>Closest match for "${name}":</i>\n` : "") +
+        formatCardCaption(card);
       const imageUrl = getImageUrl(card);
 
       if (imageUrl) {
