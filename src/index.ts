@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Bot } from 'grammy';
-import { run } from '@grammyjs/runner';
+import { run, sequentialize } from '@grammyjs/runner';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { limit } from '@grammyjs/ratelimiter';
@@ -13,6 +13,9 @@ const bot = new Bot(token);
 const throttler = apiThrottler();
 bot.api.config.use(throttler);
 bot.api.config.use(autoRetry());
+
+// Sequentialize per user so the ratelimiter counter is accurate under concurrency
+bot.use(sequentialize((ctx) => ctx.from?.id.toString()));
 
 // Skip the ratelimiter entirely for messages that don't contain [[]]
 bot.use(async (ctx, next) => {
