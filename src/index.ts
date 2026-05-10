@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Bot } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
-import { throttler } from '@grammyjs/transformer-throttler';
+import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { limit } from '@grammyjs/ratelimiter';
 import { searchCard, getImageUrl, formatCardCaption } from './cardvault.js';
 
@@ -9,14 +9,17 @@ const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
 
 const bot = new Bot(token);
-bot.api.config.use(throttler());
+const throttler = apiThrottler();
+bot.api.config.use(throttler);
 bot.api.config.use(autoRetry());
 bot.use(
   limit({
     timeFrame: 2000,
     limit: 3,
     onLimitExceeded: async (ctx) => {
-      await ctx.reply("Slow down — you're sending too many requests. Please wait a moment.");
+      await ctx.reply(
+        "Slow down — you're sending too many requests. Please wait a moment.",
+      );
     },
   }),
 );
