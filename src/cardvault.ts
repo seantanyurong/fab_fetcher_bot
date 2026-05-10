@@ -31,7 +31,7 @@ export interface SearchResult {
 }
 
 export async function searchCard(name: string): Promise<SearchResult | null> {
-  const url = `${BASE_URL}/advanced-search/?q=${encodeURIComponent(name)}&page_size=10&orderby=name`;
+  const url = `${BASE_URL}/advanced-search/?q=${encodeURIComponent(name)}&page_size=10`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
@@ -40,12 +40,19 @@ export async function searchCard(name: string): Promise<SearchResult | null> {
   if (!data.results || data.results.length === 0) return null;
 
   const q = name.toLowerCase();
-  const topResult = data.results[0];
-  const isClose =
-    topResult.printed_name.toLowerCase().includes(q) ||
-    q.includes(topResult.printed_name.toLowerCase().split(",")[0].trim());
+  const exact = data.results.find((c) => c.printed_name.toLowerCase() === q);
+  const startsWith = data.results.find((c) =>
+    c.printed_name.toLowerCase().startsWith(q)
+  );
+  const includes = data.results.find((c) =>
+    c.printed_name.toLowerCase().includes(q)
+  );
 
-  return { card: topResult, fuzzy: !isClose };
+  const card = exact ?? startsWith ?? includes;
+  if (card) return { card, fuzzy: false };
+
+  // No name match — trust API's top result as a fuzzy match
+  return { card: data.results[0], fuzzy: true };
 }
 
 export function getImageUrl(card: Card): string | null {
