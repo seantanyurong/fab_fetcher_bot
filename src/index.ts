@@ -115,7 +115,7 @@ bot.on('my_chat_member', async (ctx) => {
   if (!addedToGroup) return;
 
   await ctx.reply(
-    "Yo.\n\nI'm a bot that can help fetch and display Flesh and Blood cards.\n\n" +
+    "Yo.\n\nI'm a bot that helps fetch and display Flesh and Blood cards.\n\n" +
       '<b>Instructions</b>\n' +
       'Make me an Admin, then type [[card name]] to look up a card.\n\n' +
       '<b>Syntax</b>\n' +
