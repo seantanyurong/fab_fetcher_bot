@@ -25,6 +25,7 @@ bot.use(
   limit({
     timeFrame: 2000,
     limit: 3,
+    keyGenerator: (ctx) => ctx.from?.id.toString(),
     onLimitExceeded: async (ctx) => {
       console.log(`Rate limit exceeded for user ${ctx.from?.id} (${ctx.from?.username})`);
       await ctx.reply(
