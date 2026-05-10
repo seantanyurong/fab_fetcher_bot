@@ -7,6 +7,20 @@ if (!token) throw new Error('BOT_TOKEN environment variable is required');
 
 const bot = new Bot(token);
 
+bot.command('start', async (ctx) => {
+  await ctx.reply(
+    'Hello. I can fetch Flesh and Blood cards in any group chat.\n\n' +
+      '<b>How to use</b>\n' +
+      'Add me to a group and make me an Admin, then type [[card name]] to look up a card.\n\n' +
+      '<b>Syntax</b>\n' +
+      '1. Basic: <code>[[Rhinar]]</code>\n' +
+      '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
+      'If you encounter any bugs, feel free to message @seanyouwrong\n\n' +
+      '<i>Not affiliated or endorsed by Legend Story Studios®. Flesh and Blood™ is a registered trademark of Legend Story Studios.</i>',
+    { parse_mode: 'HTML' },
+  );
+});
+
 // Match all [[card name]] patterns in a message, including multiple per message
 const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
 
@@ -92,10 +106,10 @@ bot.on('my_chat_member', async (ctx) => {
   await ctx.reply(
     "Hello.\n\nI'm a bot that can help fetch and display Flesh and Blood cards.\n\n" +
       '<b>Instructions</b>\n' +
-      '1. Make me an Admin\n' +
-      "2. Any member can type [[card name]] and I'll fetch it for you\n\n" +
+      'Make me an Admin, then type [[card name]] to look up a card.\n\n' +
       '<b>Syntax</b>\n' +
-      'Pitch: <code>[[card name p:1]]</code>\n\n' +
+      '1. Basic: <code>[[Rhinar]]</code>\n' +
+      '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
       'If you encounter any bugs, feel free to message @seanyouwrong\n\n' +
       '<i>Not affiliated or endorsed by Legend Story Studios®. Flesh and Blood™ is a registered trademark of Legend Story Studios.</i>',
     { parse_mode: 'HTML' },
