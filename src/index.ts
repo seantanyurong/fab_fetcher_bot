@@ -14,8 +14,8 @@ bot.api.config.use(throttler);
 bot.api.config.use(autoRetry());
 bot.use(
   limit({
-    timeFrame: 2000,
-    limit: 3,
+    timeFrame: 5000,
+    limit: 2,
     onLimitExceeded: async (ctx) => {
       await ctx.reply(
         "Slow down — you're sending too many requests. Please wait a moment.",
