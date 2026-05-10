@@ -15,14 +15,21 @@ bot.on("message:text", async (ctx) => {
   const matches = [...text.matchAll(CARD_PATTERN)];
   if (matches.length === 0) return;
 
-  // Deduplicate card names (case-insensitive)
-  const names = [
-    ...new Set(matches.map((m) => m[1].trim().toLowerCase())),
-  ].slice(0, 5); // cap at 5 cards per message
+  const queries = [
+    ...new Map(
+      matches.map((m) => {
+        const raw = m[1].trim();
+        const pitchMatch = raw.match(/\bp:([123])\b/i);
+        const pitch = pitchMatch ? Number(pitchMatch[1]) : undefined;
+        const name = raw.replace(/\bp:[123]\b/gi, "").trim().toLowerCase();
+        return [name + (pitch ?? ""), { name, pitch }];
+      }),
+    ).values(),
+  ].slice(0, 5);
 
-  for (const name of names) {
+  for (const { name, pitch } of queries) {
     try {
-      const result = await searchCard(name);
+      const result = await searchCard(name, pitch);
 
       if (!result) {
         await ctx.reply(`No card found for "${name}"`, {
@@ -32,8 +39,9 @@ bot.on("message:text", async (ctx) => {
       }
 
       const { card, fuzzy } = result;
+      const queryLabel = pitch !== undefined ? `${name} p:${pitch}` : name;
       const caption =
-        (fuzzy ? `<i>Closest match for "${name}":</i>\n` : "") +
+        (fuzzy ? `<i>Closest match for "${queryLabel}":</i>\n` : "") +
         formatCardCaption(card);
       const imageUrl = getImageUrl(card);
 

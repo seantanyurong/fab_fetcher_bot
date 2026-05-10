@@ -31,8 +31,18 @@ export interface SearchResult {
   fuzzy: boolean;
 }
 
-export async function searchCard(name: string): Promise<SearchResult | null> {
-  const url = `${BASE_URL}/advanced-search/?q=${encodeURIComponent(name)}&page_size=10&orderBy=relevance`;
+export async function searchCard(
+  name: string,
+  pitch?: number,
+): Promise<SearchResult | null> {
+  const params = new URLSearchParams({
+    q: name,
+    page_size: "10",
+    orderby: "relevance",
+  });
+  if (pitch !== undefined) params.set("pitch", String(pitch));
+
+  const url = `${BASE_URL}/advanced-search/?${params}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
@@ -52,7 +62,6 @@ export async function searchCard(name: string): Promise<SearchResult | null> {
   const card = exact ?? startsWith ?? includes;
   if (card) return { card, fuzzy: false };
 
-  // No name match — trust API's top result as a fuzzy match
   return { card: data.results[0], fuzzy: true };
 }
 
