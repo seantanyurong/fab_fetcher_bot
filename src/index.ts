@@ -76,17 +76,28 @@ bot.on('my_chat_member', async (ctx) => {
     (new_chat_member.status === 'member' ||
       new_chat_member.status === 'administrator');
 
+  const promotedToAdmin =
+    old_chat_member.status === 'member' &&
+    new_chat_member.status === 'administrator';
+
+  if (promotedToAdmin) {
+    await ctx.reply(
+      "Nice. I'm an admin now. Ready to fetch cards — type [[card name]] to get started.",
+    );
+    return;
+  }
+
   if (!addedToGroup) return;
 
   await ctx.reply(
-    "Hello - I'm a bot that can help fetch Flesh and Blood cards in your Telegram groups.\n\n" +
+    "Hello.\n\nI'm a bot that can help fetch and display Flesh and Blood cards.\n\n" +
       '<b>Instructions</b>\n' +
-      '1. Make me an admin\n' +
+      '1. Make me an Admin\n' +
       "2. Any member can type [[card name]] and I'll fetch it for you\n\n" +
       '<b>Syntax</b>\n' +
       'Pitch: <code>[[card name p:1]]</code>\n\n' +
       'If you encounter any bugs, feel free to message @seanyouwrong\n\n' +
-      '<i>Not affiliated or endorsed by Legend Story Studios.</i>',
+      '<i>Not affiliated or endorsed by Legend Story Studios®. Flesh and Blood™ is a registered trademark of Legend Story Studios.</i>',
     { parse_mode: 'HTML' },
   );
 });
