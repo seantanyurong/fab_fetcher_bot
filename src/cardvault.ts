@@ -50,19 +50,23 @@ export async function searchCard(
   const data = (await res.json()) as SearchResponse;
   if (!data.results || data.results.length === 0) return null;
 
-  const q = name.toLowerCase();
-  const exact = data.results.find((c) => c.printed_name.toLowerCase() === q);
-  const startsWith = data.results.find((c) =>
+  return matchCardFromResults(data.results, name);
+}
+
+function matchCardFromResults(results: Card[], query: string): SearchResult {
+  const q = query.toLowerCase();
+  const exact = results.find((c) => c.printed_name.toLowerCase() === q);
+  const startsWith = results.find((c) =>
     c.printed_name.toLowerCase().startsWith(q),
   );
-  const includes = data.results.find((c) =>
+  const includes = results.find((c) =>
     c.printed_name.toLowerCase().includes(q),
   );
 
   const card = exact ?? startsWith ?? includes;
   if (card) return { card, fuzzy: false };
 
-  return { card: data.results[0], fuzzy: true };
+  return { card: results[0], fuzzy: true };
 }
 
 export function getImageUrl(card: Card): string | null {
