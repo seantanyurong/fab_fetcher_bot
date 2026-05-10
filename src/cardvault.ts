@@ -1,5 +1,18 @@
 const BASE_URL = 'https://api.cardvault.fabtcg.com/carddb/api/v1';
 
+const TTL_MS = 60 * 60 * 1000; // 1 hour
+
+interface CacheEntry {
+  result: SearchResult | null;
+  expiresAt: number;
+}
+
+const cache = new Map<string, CacheEntry>();
+
+function cacheKey(name: string, pitch?: number): string {
+  return `${name}|${pitch ?? ''}`;
+}
+
 export interface CardFace {
   image?: {
     normal?: string;
@@ -35,6 +48,10 @@ export async function searchCard(
   name: string,
   pitch?: number,
 ): Promise<SearchResult | null> {
+  const key = cacheKey(name, pitch);
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+
   const params = new URLSearchParams({
     q: name,
     page_size: "10",
@@ -49,9 +66,12 @@ export async function searchCard(
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
 
   const data = (await res.json()) as SearchResponse;
-  if (!data.results || data.results.length === 0) return null;
+  const result = data.results?.length
+    ? matchCardFromResults(data.results, name, pitch)
+    : null;
 
-  return matchCardFromResults(data.results, name, pitch);
+  cache.set(key, { result, expiresAt: Date.now() + TTL_MS });
+  return result;
 }
 
 function matchCardFromResults(
