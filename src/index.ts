@@ -33,10 +33,10 @@ bot.on('message:text', async (ctx) => {
     ...new Map(
       matches.map((m) => {
         const raw = m[1].trim();
-        const pitchMatch = raw.match(/\bp:([123])\b/i);
+        const pitchMatch = raw.match(/\bp:([0123])\b/i);
         const pitch = pitchMatch ? Number(pitchMatch[1]) : undefined;
         const name = raw
-          .replace(/\bp:[123]\b/gi, '')
+          .replace(/\bp:[0123]\b/gi, '')
           .trim()
           .toLowerCase();
         return [name + (pitch ?? ''), { name, pitch }];

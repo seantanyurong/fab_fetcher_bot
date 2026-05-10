@@ -40,7 +40,8 @@ export async function searchCard(
     page_size: "10",
     orderby: "relevance",
   });
-  if (pitch !== undefined) params.set("pitch", String(pitch));
+  // pitch=0 means "no pitch" (null) — not a valid API param, handled client-side
+  if (pitch !== undefined && pitch !== 0) params.set("pitch", String(pitch));
 
   const url = `${BASE_URL}/advanced-search/?${params}`;
 
@@ -50,16 +51,25 @@ export async function searchCard(
   const data = (await res.json()) as SearchResponse;
   if (!data.results || data.results.length === 0) return null;
 
-  return matchCardFromResults(data.results, name);
+  return matchCardFromResults(data.results, name, pitch);
 }
 
-function matchCardFromResults(results: Card[], query: string): SearchResult {
+function matchCardFromResults(
+  results: Card[],
+  query: string,
+  pitch?: number,
+): SearchResult {
   const q = query.toLowerCase();
-  const exact = results.find((c) => c.printed_name.toLowerCase() === q);
-  const startsWith = results.find((c) =>
+  const pool =
+    pitch === 0
+      ? results.filter((c) => c.printed_pitch === null)
+      : results;
+
+  const exact = pool.find((c) => c.printed_name.toLowerCase() === q);
+  const startsWith = pool.find((c) =>
     c.printed_name.toLowerCase().startsWith(q),
   );
-  const includes = results.find((c) =>
+  const includes = pool.find((c) =>
     c.printed_name.toLowerCase().includes(q),
   );
 
