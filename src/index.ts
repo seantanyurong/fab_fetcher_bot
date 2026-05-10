@@ -9,7 +9,7 @@ const bot = new Bot(token);
 
 bot.command('start', async (ctx) => {
   await ctx.reply(
-    'Hello. I can fetch Flesh and Blood cards in any group chat.\n\n' +
+    'Yo. I can fetch Flesh and Blood cards in any group chat.\n\n' +
       '<b>How to use</b>\n' +
       'Add me to a group and make me an Admin, then type [[card name]] to look up a card.\n\n' +
       '<b>Syntax</b>\n' +
@@ -45,6 +45,17 @@ bot.on('message:text', async (ctx) => {
   ].slice(0, 5);
 
   for (const { name, pitch } of queries) {
+    if (!name) {
+      await ctx.reply(
+        'Please provide a card name, e.g. <code>[[Rhinar]]</code>',
+        {
+          parse_mode: 'HTML',
+          reply_parameters: { message_id: ctx.message.message_id },
+        },
+      );
+      continue;
+    }
+
     try {
       const result = await searchCard(name, pitch);
 
@@ -104,7 +115,7 @@ bot.on('my_chat_member', async (ctx) => {
   if (!addedToGroup) return;
 
   await ctx.reply(
-    "Hello.\n\nI'm a bot that can help fetch and display Flesh and Blood cards.\n\n" +
+    "Yo.\n\nI'm a bot that can help fetch and display Flesh and Blood cards.\n\n" +
       '<b>Instructions</b>\n' +
       'Make me an Admin, then type [[card name]] to look up a card.\n\n' +
       '<b>Syntax</b>\n' +
