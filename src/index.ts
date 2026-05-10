@@ -14,7 +14,6 @@ const throttler = apiThrottler();
 bot.api.config.use(throttler);
 bot.api.config.use(autoRetry());
 
-
 // Skip the ratelimiter entirely for messages that don't contain [[]]
 bot.use(async (ctx, next) => {
   if (ctx.message?.text && !ctx.message.text.includes('[[')) return;
@@ -27,7 +26,9 @@ bot.use(
     limit: 3,
     keyGenerator: (ctx) => ctx.from?.id.toString(),
     onLimitExceeded: async (ctx) => {
-      console.log(`Rate limit exceeded for user ${ctx.from?.id} (${ctx.from?.username})`);
+      console.log(
+        `Rate limit exceeded for user ${ctx.from?.id} (${ctx.from?.username})`,
+      );
       await ctx.reply(
         "Slow down — you're sending too many requests. Please wait a moment.",
       );
@@ -115,7 +116,7 @@ bot.on('message:text', async (ctx) => {
       }
     } catch (err) {
       console.error(`Failed to fetch card "${name}":`, err);
-      await ctx.reply(`Error fetching "${name}" — CardVault may be down.`, {
+      await ctx.reply(`Error fetching "${name}" — investigating.`, {
         reply_parameters: { message_id: ctx.message.message_id },
       });
     }
