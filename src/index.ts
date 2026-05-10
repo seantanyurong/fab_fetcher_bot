@@ -63,9 +63,9 @@ bot.on('message:text', async (ctx) => {
   ].slice(0, 5);
 
   for (const { name, pitch } of queries) {
-    if (!name) {
+    if (!name || name.length < 2) {
       await ctx.reply(
-        'Please provide a card name, e.g. <code>[[Rhinar]]</code>',
+        'Please provide at least 2 characters, e.g. <code>[[Rhinar]]</code>',
         {
           parse_mode: 'HTML',
           reply_parameters: { message_id: ctx.message.message_id },
