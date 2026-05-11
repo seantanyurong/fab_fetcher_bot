@@ -1,4 +1,9 @@
-import { CARDVAULT_BASE_URL, CARDVAULT_CACHE_TTL_MS } from './config.js';
+import {
+  CARDVAULT_BASE_URL,
+  CARDVAULT_CACHE_TTL_MS,
+  CARDVAULT_MAX_CONCURRENT,
+  CARDVAULT_MIN_TIME_MS,
+} from './config.js';
 
 interface CacheEntry {
   result: SearchResult | null;
@@ -6,6 +11,34 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
+const pending = new Map<string, Promise<SearchResult | null>>();
+
+// Cap concurrent CardVault requests AND enforce a min gap between starts
+let running = 0;
+let lastStart = 0;
+const queue: (() => void)[] = [];
+
+async function withLimit<T>(fn: () => Promise<T>): Promise<T> {
+  if (running >= CARDVAULT_MAX_CONCURRENT) {
+    await new Promise<void>((resolve) => queue.push(resolve));
+  }
+
+  const elapsed = Date.now() - lastStart;
+  if (elapsed < CARDVAULT_MIN_TIME_MS) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, CARDVAULT_MIN_TIME_MS - elapsed),
+    );
+  }
+
+  running++;
+  lastStart = Date.now();
+  try {
+    return await fn();
+  } finally {
+    running--;
+    queue.shift()?.();
+  }
+}
 
 function cacheKey(name: string, pitch?: number): string {
   return `${name}|${pitch ?? ''}`;
@@ -47,9 +80,32 @@ export async function searchCard(
   pitch?: number,
 ): Promise<SearchResult | null> {
   const key = cacheKey(name, pitch);
+
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.result;
 
+  // Reuse an in-flight fetch for the same key
+  const inFlight = pending.get(key);
+  if (inFlight) return inFlight;
+
+  const promise = withLimit(() => fetchCard(name, pitch))
+    .then((result) => {
+      cache.set(key, {
+        result,
+        expiresAt: Date.now() + CARDVAULT_CACHE_TTL_MS,
+      });
+      return result;
+    })
+    .finally(() => pending.delete(key));
+
+  pending.set(key, promise);
+  return promise;
+}
+
+async function fetchCard(
+  name: string,
+  pitch?: number,
+): Promise<SearchResult | null> {
   const params = new URLSearchParams({
     q: name,
     page_size: '10',
@@ -64,12 +120,9 @@ export async function searchCard(
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
 
   const data = (await res.json()) as SearchResponse;
-  const result = data.results?.length
+  return data.results?.length
     ? matchCardFromResults(data.results, name, pitch)
     : null;
-
-  cache.set(key, { result, expiresAt: Date.now() + CARDVAULT_CACHE_TTL_MS });
-  return result;
 }
 
 function matchCardFromResults(

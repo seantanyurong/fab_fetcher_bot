@@ -50,13 +50,18 @@ scripts/
 
 **Concurrency** — uses `@grammyjs/runner` to process updates from different users in parallel. `sequentialize` keyed by user ID ensures one user's messages stay ordered while different users run concurrently.
 
-**Rate limiting**
-- **Outgoing (to Telegram)** — `apiThrottler` paces sends to stay under Telegram's per-chat limits; `autoRetry` catches 429s and retries transparently.
-- **Incoming (from users)** — sliding-window per-user rate limit (5 messages per 10 seconds) inside the handler, post-`sequentialize`.
+**Telegram-facing protections (outgoing)**
+- `apiThrottler` paces sends to stay under Telegram's per-chat limits (~1/sec, 20/min in groups).
+- `autoRetry` catches any 429s that slip through and retries transparently.
 
-**Caching**
-- 1 hour TTL on CardVault responses to avoid repeated fetches for the same card.
-- In-flight promise deduplication: if 20 users request the same uncached card simultaneously, only one CardVault request fires and all 20 await it.
+**User-facing rate limit (incoming)**
+- Sliding-window per-user limit of 5 messages per 10 seconds. The 6th gets a "slow down" reply and is dropped before any work happens.
+
+**CardVault protections (outgoing)**
+- **Cache** — 1 hour TTL on resolved lookups; most repeated requests skip the API entirely.
+- **Request coalescing** — if 20 users request the same uncached card simultaneously, only one fetch fires and all 20 await it.
+- **Concurrency cap** — never more than 10 in-flight CardVault requests at once. Protects this process from runaway resource use if the API gets slow.
+- **Minimum gap** — 100ms between request starts (~10 req/sec ceiling). Protects CardVault from sustained spam bursts.
 
 **Multi-card replies** — multiple cards return as a single Telegram media group (one message, up to 5 photos) with a combined caption containing all card links, notices, and errors.
 

@@ -2,6 +2,8 @@
 export const CARDVAULT_BASE_URL =
   'https://api.cardvault.fabtcg.com/carddb/api/v1';
 export const CARDVAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+export const CARDVAULT_MAX_CONCURRENT = 10;
+export const CARDVAULT_MIN_TIME_MS = 100; // min gap between CardVault requests (~10 req/sec)
 
 // Regex patterns for parsing card queries
 export const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
