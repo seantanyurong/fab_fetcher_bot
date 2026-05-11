@@ -41,7 +41,7 @@ bot.on('message:text', async (ctx) => {
     `[handler] START msg=${ctx.message.message_id} user=${ctx.from?.id} cards=${matches.length}`,
   );
 
-  const queries = [
+  const uniqueQueries = [
     ...new Map(
       matches.map((m) => {
         const raw = m[1].trim();
@@ -54,7 +54,17 @@ bot.on('message:text', async (ctx) => {
         return [name + (pitch ?? ''), { name, pitch }];
       }),
     ).values(),
-  ].slice(0, 5);
+  ];
+
+  const MAX_CARDS = 5;
+  const queries = uniqueQueries.slice(0, MAX_CARDS);
+
+  if (uniqueQueries.length > MAX_CARDS) {
+    await ctx.reply(
+      `You requested ${uniqueQueries.length} cards — only the first ${MAX_CARDS} will be fetched.`,
+      { reply_parameters: { message_id: ctx.message.message_id } },
+    );
+  }
 
   for (const { name, pitch } of queries) {
     if (!name || name.length < 2) {
@@ -86,11 +96,13 @@ bot.on('message:text', async (ctx) => {
       const imageUrl = getImageUrl(card);
 
       if (imageUrl) {
+        const sendStart = Date.now();
         await ctx.replyWithPhoto(imageUrl, {
           caption,
           parse_mode: 'HTML',
           reply_parameters: { message_id: ctx.message.message_id },
         });
+        console.log(`[send] ${name} took ${Date.now() - sendStart}ms`);
       } else {
         await ctx.reply(caption, {
           parse_mode: 'HTML',
