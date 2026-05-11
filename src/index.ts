@@ -37,6 +37,10 @@ bot.on('message:text', async (ctx) => {
   const matches = [...text.matchAll(CARD_PATTERN)];
   if (matches.length === 0) return;
 
+  console.log(
+    `[handler] START msg=${ctx.message.message_id} user=${ctx.from?.id} cards=${matches.length}`,
+  );
+
   const queries = [
     ...new Map(
       matches.map((m) => {
@@ -100,6 +104,8 @@ bot.on('message:text', async (ctx) => {
       });
     }
   }
+
+  console.log(`[handler] END msg=${ctx.message.message_id}`);
 });
 
 bot.on('my_chat_member', async (ctx) => {
