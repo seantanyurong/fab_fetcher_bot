@@ -32,10 +32,39 @@ bot.command('start', async (ctx) => {
 // Match all [[card name]] patterns in a message, including multiple per message
 const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
 
+// Per-user rate limiting
+const userTimestamps = new Map<number, number[]>();
+const RATE_WINDOW_MS = 10_000;
+const RATE_MAX = 5;
+
+function isRateLimited(userId: number): boolean {
+  const now = Date.now();
+  const timestamps = (userTimestamps.get(userId) ?? []).filter(
+    (t) => now - t < RATE_WINDOW_MS,
+  );
+  if (timestamps.length >= RATE_MAX) {
+    userTimestamps.set(userId, timestamps);
+    return true;
+  }
+  timestamps.push(now);
+  userTimestamps.set(userId, timestamps);
+  return false;
+}
+
 bot.on('message:text', async (ctx) => {
   const text = ctx.message.text;
   const matches = [...text.matchAll(CARD_PATTERN)];
   if (matches.length === 0) return;
+
+  const userId = ctx.from?.id;
+  if (userId && isRateLimited(userId)) {
+    console.log(`Rate limited user ${userId} (${ctx.from?.username})`);
+    await ctx.reply(
+      "Slow down — you're sending too many requests. Please wait a moment.",
+      { reply_parameters: { message_id: ctx.message.message_id } },
+    );
+    return;
+  }
 
   console.log(
     `[handler] START msg=${ctx.message.message_id} user=${ctx.from?.id} cards=${matches.length}`,
