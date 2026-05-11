@@ -4,90 +4,47 @@ import { run, sequentialize } from '@grammyjs/runner';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { searchCard, getImageUrl, formatCardCaption } from './cardvault.js';
+import {
+  MAX_CARDS,
+  MIN_NAME_LENGTH,
+  START_MESSAGE,
+  ADDED_TO_GROUP_MESSAGE,
+  PROMOTED_TO_ADMIN_MESSAGE,
+  RATE_LIMITED_MESSAGE,
+} from './config.js';
+import { parseQueries, isRateLimited } from './helpers.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
 
 const bot = new Bot(token);
-const throttler = apiThrottler();
-bot.api.config.use(throttler);
+bot.api.config.use(apiThrottler());
 bot.api.config.use(autoRetry());
 
 bot.use(sequentialize((ctx) => ctx.from?.id.toString()));
 
 bot.command('start', async (ctx) => {
-  await ctx.reply(
-    'Yo. I can fetch Flesh and Blood cards in any group chat.\n\n' +
-      '<b>How to use</b>\n' +
-      'Add me to a group and make me an Admin, then type [[card name]] to look up a card.\n\n' +
-      '<b>Syntax</b>\n' +
-      '1. Basic: <code>[[Rhinar]]</code>\n' +
-      '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
-      'If you encounter any bugs, feel free to message @seanyouwrong\n\n' +
-      '<i>Not affiliated or endorsed by Legend Story Studios®. Flesh and Blood™ is a registered trademark of Legend Story Studios.</i>',
-    { parse_mode: 'HTML' },
-  );
+  await ctx.reply(START_MESSAGE, { parse_mode: 'HTML' });
 });
 
-// Match all [[card name]] patterns in a message, including multiple per message
-const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
-
-// Per-user rate limiting
-const userTimestamps = new Map<number, number[]>();
-const RATE_WINDOW_MS = 10_000;
-const RATE_MAX = 5;
-
-function isRateLimited(userId: number): boolean {
-  const now = Date.now();
-  const timestamps = (userTimestamps.get(userId) ?? []).filter(
-    (t) => now - t < RATE_WINDOW_MS,
-  );
-  if (timestamps.length >= RATE_MAX) {
-    userTimestamps.set(userId, timestamps);
-    return true;
-  }
-  timestamps.push(now);
-  userTimestamps.set(userId, timestamps);
-  return false;
-}
-
 bot.on('message:text', async (ctx) => {
-  const text = ctx.message.text;
-  const matches = [...text.matchAll(CARD_PATTERN)];
-  if (matches.length === 0) return;
+  const uniqueQueries = parseQueries(ctx.message.text);
+  if (uniqueQueries.length === 0) return;
 
   const userId = ctx.from?.id;
   if (userId && isRateLimited(userId)) {
     console.log(`Rate limited user ${userId} (${ctx.from?.username})`);
-    await ctx.reply(
-      "Slow down — you're sending too many requests. Please wait a moment.",
-      { reply_parameters: { message_id: ctx.message.message_id } },
-    );
+    await ctx.reply(RATE_LIMITED_MESSAGE, {
+      reply_parameters: { message_id: ctx.message.message_id },
+    });
     return;
   }
 
   console.log(
-    `[handler] START msg=${ctx.message.message_id} user=${ctx.from?.id} cards=${matches.length}`,
+    `[handler] START msg=${ctx.message.message_id} user=${ctx.from?.id} cards=${uniqueQueries.length}`,
   );
 
-  const uniqueQueries = [
-    ...new Map(
-      matches.map((m) => {
-        const raw = m[1].trim();
-        const pitchMatch = raw.match(/\bp:([0123])\b/i);
-        const pitch = pitchMatch ? Number(pitchMatch[1]) : undefined;
-        const name = raw
-          .replace(/\bp:[0123]\b/gi, '')
-          .trim()
-          .toLowerCase();
-        return [name + (pitch ?? ''), { name, pitch }];
-      }),
-    ).values(),
-  ];
-
-  const MAX_CARDS = 5; // Telegram media group max
   const queries = uniqueQueries.slice(0, MAX_CARDS);
-
   const notices: string[] = [];
   if (uniqueQueries.length > MAX_CARDS) {
     notices.push(
@@ -100,8 +57,10 @@ bot.on('message:text', async (ctx) => {
 
   await Promise.all(
     queries.map(async ({ name, pitch }) => {
-      if (!name || name.length < 2) {
-        errors.push(`"${name}" — please provide at least 2 characters`);
+      if (!name || name.length < MIN_NAME_LENGTH) {
+        errors.push(
+          `"${name}" — please provide at least ${MIN_NAME_LENGTH} characters`,
+        );
         return;
       }
 
@@ -143,7 +102,9 @@ bot.on('message:text', async (ctx) => {
       photos.map((p, i) => ({
         type: 'photo',
         media: p.media,
-        ...(i === 0 ? { caption: combinedCaption, parse_mode: 'HTML' as const } : {}),
+        ...(i === 0
+          ? { caption: combinedCaption, parse_mode: 'HTML' as const }
+          : {}),
       })),
       { reply_parameters: { message_id: ctx.message.message_id } },
     );
@@ -169,31 +130,18 @@ bot.on('my_chat_member', async (ctx) => {
     old_chat_member.status === 'left' &&
     (new_chat_member.status === 'member' ||
       new_chat_member.status === 'administrator');
-
   const promotedToAdmin =
     old_chat_member.status === 'member' &&
     new_chat_member.status === 'administrator';
 
   if (promotedToAdmin) {
-    await ctx.reply(
-      "Nice. I'm an admin now. Ready to fetch cards — type [[card name]] to get started.",
-    );
+    await ctx.reply(PROMOTED_TO_ADMIN_MESSAGE);
     return;
   }
 
   if (!addedToGroup) return;
 
-  await ctx.reply(
-    "Yo.\n\nI'm a bot that helps fetch and display Flesh and Blood cards.\n\n" +
-      '<b>Instructions</b>\n' +
-      'Make me an Admin, then type [[card name]] to look up a card.\n\n' +
-      '<b>Syntax</b>\n' +
-      '1. Basic: <code>[[Rhinar]]</code>\n' +
-      '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
-      'If you encounter any bugs, feel free to message @seanyouwrong\n\n' +
-      '<i>Not affiliated or endorsed by Legend Story Studios®. Flesh and Blood™ is a registered trademark of Legend Story Studios.</i>',
-    { parse_mode: 'HTML' },
-  );
+  await ctx.reply(ADDED_TO_GROUP_MESSAGE, { parse_mode: 'HTML' });
 });
 
 bot.catch((err) => {
