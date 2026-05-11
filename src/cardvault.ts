@@ -15,23 +15,29 @@ const pending = new Map<string, Promise<SearchResult | null>>();
 
 // Cap concurrent CardVault requests AND enforce a min gap between starts
 let running = 0;
-let lastStart = 0;
+let scheduledStart = 0;
 const queue: (() => void)[] = [];
 
 async function withLimit<T>(fn: () => Promise<T>): Promise<T> {
-  if (running >= CARDVAULT_MAX_CONCURRENT) {
+  // 1) Wait for a concurrency slot — re-check after each wake to avoid races
+  while (running >= CARDVAULT_MAX_CONCURRENT) {
+    console.log(`[limiter] queue (running=${running})`);
     await new Promise<void>((resolve) => queue.push(resolve));
   }
+  running++;
 
-  const elapsed = Date.now() - lastStart;
-  if (elapsed < CARDVAULT_MIN_TIME_MS) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, CARDVAULT_MIN_TIME_MS - elapsed),
-    );
+  // 2) Atomically reserve a rate-limited start time
+  const now = Date.now();
+  const startAt = Math.max(now, scheduledStart);
+  scheduledStart = startAt + CARDVAULT_MIN_TIME_MS;
+
+  if (startAt > now) {
+    const wait = startAt - now;
+    console.log(`[limiter] minTime wait ${wait}ms`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
 
-  running++;
-  lastStart = Date.now();
+  console.log(`[limiter] start (running=${running})`);
   try {
     return await fn();
   } finally {
