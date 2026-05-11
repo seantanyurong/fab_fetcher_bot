@@ -59,10 +59,10 @@ bot.on('message:text', async (ctx) => {
   const MAX_CARDS = 5; // Telegram media group max
   const queries = uniqueQueries.slice(0, MAX_CARDS);
 
+  const notices: string[] = [];
   if (uniqueQueries.length > MAX_CARDS) {
-    await ctx.reply(
-      `You requested ${uniqueQueries.length} cards — only the first ${MAX_CARDS} will be fetched.`,
-      { reply_parameters: { message_id: ctx.message.message_id } },
+    notices.push(
+      `<i>You requested ${uniqueQueries.length} cards — only the first ${MAX_CARDS} will be fetched.</i>`,
     );
   }
 
@@ -103,8 +103,13 @@ bot.on('message:text', async (ctx) => {
     }),
   );
 
+  const combinedCaption = [
+    ...notices,
+    ...photos.map((p) => p.caption),
+    ...errors,
+  ].join('\n');
+
   if (photos.length >= 2) {
-    const combinedCaption = photos.map((p) => p.caption).join('\n');
     await ctx.replyWithMediaGroup(
       photos.map((p, i) => ({
         type: 'photo',
@@ -115,14 +120,12 @@ bot.on('message:text', async (ctx) => {
     );
   } else if (photos.length === 1) {
     await ctx.replyWithPhoto(photos[0].media, {
-      caption: photos[0].caption,
+      caption: combinedCaption,
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
     });
-  }
-
-  if (errors.length > 0) {
-    await ctx.reply(errors.join('\n'), {
+  } else if (combinedCaption) {
+    await ctx.reply(combinedCaption, {
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
     });
