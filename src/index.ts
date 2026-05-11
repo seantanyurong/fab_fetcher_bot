@@ -79,7 +79,9 @@ bot.on('message:text', async (ctx) => {
     }
 
     try {
+      const fetchStart = Date.now();
       const result = await searchCard(name, pitch);
+      console.log(`[fetch] ${name} took ${Date.now() - fetchStart}ms`);
 
       if (!result) {
         await ctx.reply(`No card found for "${name}"`, {
