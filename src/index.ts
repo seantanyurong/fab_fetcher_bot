@@ -56,7 +56,7 @@ bot.on('message:text', async (ctx) => {
     ).values(),
   ];
 
-  const MAX_CARDS = 5;
+  const MAX_CARDS = 5; // Telegram media group max
   const queries = uniqueQueries.slice(0, MAX_CARDS);
 
   if (uniqueQueries.length > MAX_CARDS) {
@@ -66,57 +66,66 @@ bot.on('message:text', async (ctx) => {
     );
   }
 
-  for (const { name, pitch } of queries) {
-    if (!name || name.length < 2) {
-      await ctx.reply(
-        'Please provide at least 2 characters, e.g. <code>[[Rhinar]]</code>',
-        {
-          parse_mode: 'HTML',
-          reply_parameters: { message_id: ctx.message.message_id },
-        },
-      );
-      continue;
-    }
+  const photos: { media: string; caption: string }[] = [];
+  const errors: string[] = [];
 
-    try {
-      const fetchStart = Date.now();
-      const result = await searchCard(name, pitch);
-      console.log(`[fetch] ${name} took ${Date.now() - fetchStart}ms`);
-
-      if (!result) {
-        await ctx.reply(`No card found for "${name}"`, {
-          reply_parameters: { message_id: ctx.message.message_id },
-        });
-        continue;
+  await Promise.all(
+    queries.map(async ({ name, pitch }) => {
+      if (!name || name.length < 2) {
+        errors.push(`"${name}" — please provide at least 2 characters`);
+        return;
       }
 
-      const { card, fuzzy } = result;
-      const queryLabel = pitch !== undefined ? `${name} p:${pitch}` : name;
-      const caption =
-        (fuzzy ? `<i>Closest match for "${queryLabel}":</i>\n` : '') +
-        formatCardCaption(card);
-      const imageUrl = getImageUrl(card);
+      try {
+        const result = await searchCard(name, pitch);
 
-      if (imageUrl) {
-        const sendStart = Date.now();
-        await ctx.replyWithPhoto(imageUrl, {
-          caption,
-          parse_mode: 'HTML',
-          reply_parameters: { message_id: ctx.message.message_id },
-        });
-        console.log(`[send] ${name} took ${Date.now() - sendStart}ms`);
-      } else {
-        await ctx.reply(caption, {
-          parse_mode: 'HTML',
-          reply_parameters: { message_id: ctx.message.message_id },
-        });
+        if (!result) {
+          errors.push(`No card found for "${name}"`);
+          return;
+        }
+
+        const { card, fuzzy } = result;
+        const queryLabel = pitch !== undefined ? `${name} p:${pitch}` : name;
+        const caption =
+          (fuzzy ? `<i>Closest match for "${queryLabel}":</i>\n` : '') +
+          formatCardCaption(card);
+        const imageUrl = getImageUrl(card);
+
+        if (imageUrl) {
+          photos.push({ media: imageUrl, caption });
+        } else {
+          errors.push(caption);
+        }
+      } catch (err) {
+        console.error(`Failed to fetch card "${name}":`, err);
+        errors.push(`Error fetching "${name}"`);
       }
-    } catch (err) {
-      console.error(`Failed to fetch card "${name}":`, err);
-      await ctx.reply(`Error fetching "${name}" — investigating.`, {
-        reply_parameters: { message_id: ctx.message.message_id },
-      });
-    }
+    }),
+  );
+
+  if (photos.length >= 2) {
+    await ctx.replyWithMediaGroup(
+      photos.map((p) => ({
+        type: 'photo',
+        media: p.media,
+        caption: p.caption,
+        parse_mode: 'HTML',
+      })),
+      { reply_parameters: { message_id: ctx.message.message_id } },
+    );
+  } else if (photos.length === 1) {
+    await ctx.replyWithPhoto(photos[0].media, {
+      caption: photos[0].caption,
+      parse_mode: 'HTML',
+      reply_parameters: { message_id: ctx.message.message_id },
+    });
+  }
+
+  if (errors.length > 0) {
+    await ctx.reply(errors.join('\n'), {
+      parse_mode: 'HTML',
+      reply_parameters: { message_id: ctx.message.message_id },
+    });
   }
 
   console.log(`[handler] END msg=${ctx.message.message_id}`);
