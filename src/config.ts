@@ -1,3 +1,8 @@
+// CardVault API
+export const CARDVAULT_BASE_URL =
+  'https://api.cardvault.fabtcg.com/carddb/api/v1';
+export const CARDVAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 // Regex patterns for parsing card queries
 export const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
 export const PITCH_PATTERN = /\bp:([0123])\b/i;

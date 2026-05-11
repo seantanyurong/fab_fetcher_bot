@@ -1,6 +1,4 @@
-const BASE_URL = 'https://api.cardvault.fabtcg.com/carddb/api/v1';
-
-const TTL_MS = 60 * 60 * 1000; // 1 hour
+import { CARDVAULT_BASE_URL, CARDVAULT_CACHE_TTL_MS } from './config.js';
 
 interface CacheEntry {
   result: SearchResult | null;
@@ -54,13 +52,13 @@ export async function searchCard(
 
   const params = new URLSearchParams({
     q: name,
-    page_size: "10",
-    orderby: "relevance",
+    page_size: '10',
+    orderby: 'relevance',
   });
   // pitch=0 means "no pitch" (null) — not a valid API param, handled client-side
-  if (pitch !== undefined && pitch !== 0) params.set("pitch", String(pitch));
+  if (pitch !== undefined && pitch !== 0) params.set('pitch', String(pitch));
 
-  const url = `${BASE_URL}/advanced-search/?${params}`;
+  const url = `${CARDVAULT_BASE_URL}/advanced-search/?${params}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
@@ -70,7 +68,7 @@ export async function searchCard(
     ? matchCardFromResults(data.results, name, pitch)
     : null;
 
-  cache.set(key, { result, expiresAt: Date.now() + TTL_MS });
+  cache.set(key, { result, expiresAt: Date.now() + CARDVAULT_CACHE_TTL_MS });
   return result;
 }
 
@@ -81,17 +79,13 @@ function matchCardFromResults(
 ): SearchResult {
   const q = query.toLowerCase();
   const pool =
-    pitch === 0
-      ? results.filter((c) => c.printed_pitch === null)
-      : results;
+    pitch === 0 ? results.filter((c) => c.printed_pitch === null) : results;
 
   const exact = pool.find((c) => c.printed_name.toLowerCase() === q);
   const startsWith = pool.find((c) =>
     c.printed_name.toLowerCase().startsWith(q),
   );
-  const includes = pool.find((c) =>
-    c.printed_name.toLowerCase().includes(q),
-  );
+  const includes = pool.find((c) => c.printed_name.toLowerCase().includes(q));
 
   const card = exact ?? startsWith ?? includes;
   if (card) return { card, fuzzy: false };
