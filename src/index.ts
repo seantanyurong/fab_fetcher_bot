@@ -6,6 +6,7 @@ import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { searchCard, getImageUrl, formatCardCaption } from './cardvault.js';
 import {
   MAX_CARDS,
+  MAX_CAPTION_LENGTH,
   MIN_NAME_LENGTH,
   START_MESSAGE,
   ADDED_TO_GROUP_MESSAGE,
@@ -91,11 +92,15 @@ bot.on('message:text', async (ctx) => {
     }),
   );
 
-  const combinedCaption = [
+  const rawCaption = [
     ...notices,
     ...photos.map((p) => p.caption),
     ...errors,
   ].join('\n');
+  const combinedCaption =
+    rawCaption.length > MAX_CAPTION_LENGTH
+      ? rawCaption.slice(0, MAX_CAPTION_LENGTH) + '…'
+      : rawCaption;
 
   if (photos.length >= 2) {
     await ctx.replyWithMediaGroup(

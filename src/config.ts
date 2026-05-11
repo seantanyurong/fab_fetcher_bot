@@ -4,6 +4,7 @@ export const CARDVAULT_BASE_URL =
 export const CARDVAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const CARDVAULT_MAX_CONCURRENT = 10;
 export const CARDVAULT_MIN_TIME_MS = 100; // min gap between CardVault requests (~10 req/sec)
+export const CARDVAULT_TIMEOUT_MS = 10000;
 
 // Regex patterns for parsing card queries
 export const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
@@ -13,6 +14,7 @@ export const PITCH_PATTERN_GLOBAL = /\bp:[0123]\b/gi;
 // Limits
 export const MAX_CARDS = 5; // Telegram media group max is 10, kept lower for readability
 export const MIN_NAME_LENGTH = 2;
+export const MAX_CAPTION_LENGTH = 1000; // Telegram caps captions at 1024, leave buffer for ellipsis
 
 // Per-user rate limiting
 export const RATE_WINDOW_MS = 10_000;

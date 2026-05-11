@@ -3,6 +3,7 @@ import {
   CARDVAULT_CACHE_TTL_MS,
   CARDVAULT_MAX_CONCURRENT,
   CARDVAULT_MIN_TIME_MS,
+  CARDVAULT_TIMEOUT_MS,
 } from './config.js';
 
 interface CacheEntry {
@@ -122,7 +123,9 @@ async function fetchCard(
 
   const url = `${CARDVAULT_BASE_URL}/advanced-search/?${params}`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(CARDVAULT_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`CardVault returned ${res.status}`);
 
   const data = (await res.json()) as SearchResponse;
