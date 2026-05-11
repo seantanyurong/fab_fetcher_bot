@@ -104,12 +104,12 @@ bot.on('message:text', async (ctx) => {
   );
 
   if (photos.length >= 2) {
+    const combinedCaption = photos.map((p) => p.caption).join('\n');
     await ctx.replyWithMediaGroup(
-      photos.map((p) => ({
+      photos.map((p, i) => ({
         type: 'photo',
         media: p.media,
-        caption: p.caption,
-        parse_mode: 'HTML',
+        ...(i === 0 ? { caption: combinedCaption, parse_mode: 'HTML' as const } : {}),
       })),
       { reply_parameters: { message_id: ctx.message.message_id } },
     );
