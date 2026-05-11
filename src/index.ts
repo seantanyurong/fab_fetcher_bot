@@ -3,7 +3,6 @@ import { Bot } from 'grammy';
 import { run, sequentialize } from '@grammyjs/runner';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { apiThrottler } from '@grammyjs/transformer-throttler';
-import { limit } from '@grammyjs/ratelimiter';
 import { searchCard, getImageUrl, formatCardCaption } from './cardvault.js';
 
 const token = process.env.BOT_TOKEN;
@@ -14,30 +13,7 @@ const throttler = apiThrottler();
 bot.api.config.use(throttler);
 bot.api.config.use(autoRetry());
 
-// Sequentialize per user so the ratelimiter counter is accurate under concurrency
 bot.use(sequentialize((ctx) => ctx.from?.id.toString()));
-
-// Skip the ratelimiter entirely for messages that don't contain [[]]
-bot.use(async (ctx, next) => {
-  if (ctx.message?.text && !ctx.message.text.includes('[[')) return;
-  await next();
-});
-
-bot.use(
-  limit({
-    timeFrame: 2000,
-    limit: 3,
-    keyGenerator: (ctx) => ctx.from?.id.toString(),
-    onLimitExceeded: async (ctx) => {
-      console.log(
-        `Rate limit exceeded for user ${ctx.from?.id} (${ctx.from?.username})`,
-      );
-      await ctx.reply(
-        "Slow down — you're sending too many requests. Please wait a moment.",
-      );
-    },
-  }),
-);
 
 bot.command('start', async (ctx) => {
   await ctx.reply(
@@ -164,4 +140,7 @@ bot.catch((err) => {
 });
 
 console.log('Starting bot...');
-run(bot);
+const handle = run(bot);
+
+process.once('SIGINT', () => handle.stop());
+process.once('SIGTERM', () => handle.stop());
