@@ -32,17 +32,29 @@ export function parseQueries(text: string): CardQuery[] {
 
 // Sliding-window per-user rate limiter
 const userTimestamps = new Map<number, number[]>();
+const lastNotifiedAt = new Map<number, number>();
 
-export function isRateLimited(userId: number): boolean {
+export interface RateLimitResult {
+  limited: boolean;
+  shouldNotify: boolean;
+}
+
+export function checkRateLimit(userId: number): RateLimitResult {
   const now = Date.now();
   const timestamps = (userTimestamps.get(userId) ?? []).filter(
     (t) => now - t < RATE_WINDOW_MS,
   );
+
   if (timestamps.length >= RATE_MAX) {
     userTimestamps.set(userId, timestamps);
-    return true;
+    // Only notify once per window — silently drop subsequent over-limit messages
+    const lastNotify = lastNotifiedAt.get(userId) ?? 0;
+    const shouldNotify = now - lastNotify >= RATE_WINDOW_MS;
+    if (shouldNotify) lastNotifiedAt.set(userId, now);
+    return { limited: true, shouldNotify };
   }
+
   timestamps.push(now);
   userTimestamps.set(userId, timestamps);
-  return false;
+  return { limited: false, shouldNotify: false };
 }

@@ -13,7 +13,7 @@ import {
   PROMOTED_TO_ADMIN_MESSAGE,
   RATE_LIMITED_MESSAGE,
 } from './config.js';
-import { parseQueries, isRateLimited } from './helpers.js';
+import { parseQueries, checkRateLimit } from './helpers.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -33,12 +33,19 @@ bot.on('message:text', async (ctx) => {
   if (uniqueQueries.length === 0) return;
 
   const userId = ctx.from?.id;
-  if (userId && isRateLimited(userId)) {
-    console.log(`Rate limited user ${userId} (${ctx.from?.username})`);
-    await ctx.reply(RATE_LIMITED_MESSAGE, {
-      reply_parameters: { message_id: ctx.message.message_id },
-    });
-    return;
+  if (userId) {
+    const { limited, shouldNotify } = checkRateLimit(userId);
+    if (limited) {
+      console.log(
+        `Rate limited user ${userId} (${ctx.from?.username}) — notify=${shouldNotify}`,
+      );
+      if (shouldNotify) {
+        await ctx.reply(RATE_LIMITED_MESSAGE, {
+          reply_parameters: { message_id: ctx.message.message_id },
+        });
+      }
+      return;
+    }
   }
 
   console.log(

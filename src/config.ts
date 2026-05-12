@@ -18,7 +18,7 @@ export const MAX_CAPTION_LENGTH = 1000; // Telegram caps captions at 1024, leave
 
 // Per-user rate limiting
 export const RATE_WINDOW_MS = 10_000;
-export const RATE_MAX = 5;
+export const RATE_MAX = 3;
 
 // Disclaimer used in all longer-form replies
 const DISCLAIMER =
@@ -57,4 +57,4 @@ export const PROMOTED_TO_ADMIN_MESSAGE =
   "Nice. I'm an admin now. Ready to fetch cards — type [[card name]] to get started.";
 
 export const RATE_LIMITED_MESSAGE =
-  "Slow down — you're sending too many requests. Please wait a moment.";
+  "Slow down — you're sending too many requests. Please wait 10 seconds before submitting another request.";
