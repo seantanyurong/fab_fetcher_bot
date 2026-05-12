@@ -43,8 +43,54 @@ src/
 └── cardvault.ts   CardVault API client, cache, request coalescing
 scripts/
 ├── stress-test-cardvault.ts   Hits CardVault directly with concurrent requests
-└── stress-test-bot.ts         Mocks Telegram API to test bot middleware
+└── stress-test-bot.ts         Full end-to-end test sending real messages to a test chat
 ```
+
+## Stress testing
+
+Two scripts test different layers of the system. Both write logs to console; `stress-test-bot.ts` also writes to `stress-test.log` for easier review.
+
+### CardVault layer only
+
+Fires a batch of concurrent `searchCard()` calls to verify the cache, request coalescing, concurrency cap (10 in-flight max), and minTime spacing (100ms between starts) all work under load. No Telegram involvement.
+
+```bash
+npx tsx scripts/stress-test-cardvault.ts
+```
+
+What to look for:
+- All requests resolve successfully
+- `running` value in the limiter logs never exceeds 10
+- `minTime wait` values grow progressively (100, 200, 300...) when many callers arrive at once
+
+### Full bot pipeline (real Telegram sends)
+
+Injects fake user updates into `bot.handleUpdate()`, which runs them through the full middleware stack — sequentialize, rate limiter, CardVault, throttler, autoRetry — and lets the outgoing sends hit Telegram for real. The bot replies appear in a designated test chat.
+
+**Setup:**
+
+1. Stop your production bot (Railway instance) first to avoid two pollers fighting over updates.
+2. Add a test chat ID to `.env`:
+   ```
+   STRESS_TEST_CHAT_ID=-100xxxxxxxxxx
+   ```
+   Use a private test group, **not** a user-facing production chat. The bot will send dozens of real messages there.
+3. Run:
+   ```bash
+   npx tsx scripts/stress-test-bot.ts
+   ```
+
+Each fake update uses a different `user_id` (so the per-user rate limiter doesn't fire), all targeting the same chat. The script sends 100 single-card messages and logs every fetch, send, and throttle event with timestamps.
+
+**Expected runtime: ~5-7 minutes** for 100 sends. The bottleneck is Telegram's 20-sends-per-minute group reservoir — the throttler queues sends and waits for refresh cycles. This is intentional and protects against 429s.
+
+After completion, review `stress-test.log` for:
+- `[fetch]` lines — CardVault timing per card
+- `[tg]` lines — actual Telegram API call duration (includes throttler queue wait)
+- `[send]` lines — total handler time per user
+- Final summary: `Sent: N  Failed: 0  429s: 0` confirms zero failures
+
+A healthy run completes with zero failures and zero 429s, proving the throttler successfully stays under Telegram's actual limits.
 
 ## Architecture notes
 
