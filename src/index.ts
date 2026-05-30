@@ -76,16 +76,14 @@ bot.on('message:text', async (ctx) => {
       try {
         const result = await searchCard(name, pitch);
 
-        if (ctx.chat?.id && ctx.from?.id) {
-          logLookup({
-            chat_id: ctx.chat.id,
-            user_id: ctx.from.id,
-            card_name: name,
-            pitch,
-            found: !!result,
-            fuzzy: result?.fuzzy ?? false,
-          });
-        }
+        logLookup({
+          chat_id: ctx.chat.id,
+          user_id: ctx.from.id,
+          card_name: name,
+          pitch,
+          found: !!result,
+          fuzzy: result?.fuzzy ?? false,
+        });
 
         if (!result) {
           errors.push(`No card found for "${name}"`);
