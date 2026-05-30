@@ -83,6 +83,9 @@ bot.on('message:text', async (ctx) => {
           pitch,
           found: !!result,
           fuzzy: result?.fuzzy ?? false,
+          result_card_id: result?.card.card_id,
+          result_card_name: result?.card.printed_name,
+          result_print_id: result?.card.print_id,
         });
 
         if (!result) {

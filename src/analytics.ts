@@ -22,6 +22,9 @@ export interface LookupEvent {
   pitch?: number;
   found: boolean;
   fuzzy?: boolean;
+  result_card_id?: string;
+  result_card_name?: string;
+  result_print_id?: string;
 }
 
 /**
@@ -38,6 +41,9 @@ export function logLookup(event: LookupEvent): void {
     pitch: event.pitch ?? null,
     found: event.found,
     fuzzy: event.fuzzy ?? false,
+    result_card_id: event.result_card_id ?? null,
+    result_card_name: event.result_card_name ?? null,
+    result_print_id: event.result_print_id ?? null,
   };
 
   client
