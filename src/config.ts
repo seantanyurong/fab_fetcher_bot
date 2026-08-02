@@ -27,7 +27,9 @@ const DISCLAIMER =
 const SYNTAX_BLOCK =
   '<b>Syntax</b>\n' +
   '1. Basic: <code>[[Rhinar]]</code>\n' +
-  '2. Pitch: <code>[[Zero to Sixty p:1]]</code>';
+  '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
+  '<b>Calendar</b>\n' +
+  "Use /calendar to mark game days and see who's playing.";
 
 const SUPPORT_LINE =
   'If you encounter any bugs, feel free to message @seanyouwrong';
@@ -58,3 +60,6 @@ export const PROMOTED_TO_ADMIN_MESSAGE =
 
 export const RATE_LIMITED_MESSAGE =
   "Slow down — you're sending too many requests. Please wait 10 seconds before submitting another request.";
+
+export const CALENDAR_MESSAGE =
+  "📅 Tap a date to mark yourself in, or see who's playing.";
