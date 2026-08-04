@@ -63,3 +63,6 @@ export const RATE_LIMITED_MESSAGE =
 
 export const CALENDAR_MESSAGE =
   "📅 Tap a date to mark yourself in, or see who's playing.";
+
+// How long a "set location" reply prompt stays valid before expiring
+export const LOCATION_PROMPT_TTL_MS = 5 * 60 * 1000;

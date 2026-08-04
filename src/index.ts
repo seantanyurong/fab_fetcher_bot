@@ -13,17 +13,30 @@ import {
   PROMOTED_TO_ADMIN_MESSAGE,
   RATE_LIMITED_MESSAGE,
   CALENDAR_MESSAGE,
+  LOCATION_PROMPT_TTL_MS,
 } from './config.js';
 import { parseQueries, checkRateLimit } from './helpers.js';
 import { logLookup } from './analytics.js';
 import {
   todayKey,
   todayMonthKey,
+  formatDateLong,
   buildMonthKeyboard,
   buildDayView,
 } from './calendar.js';
 import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
 import type { Status } from './attendance.js';
+import { getLocation, setLocation } from './locations.js';
+
+interface PendingLocationPrompt {
+  chatId: number;
+  dateKey: string;
+  promptMessageId: number;
+  expiresAt: number;
+}
+
+// Keyed by user ID — tracks the one "set location" reply prompt a user has open
+const pendingLocationPrompts = new Map<number, PendingLocationPrompt>();
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -75,8 +88,11 @@ bot.on('callback_query:data', async (ctx) => {
 
   if (kind === 'd') {
     const dateKey = arg;
-    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
-    const { text, keyboard } = buildDayView(dateKey, responses);
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
@@ -99,8 +115,11 @@ bot.on('callback_query:data', async (ctx) => {
       : ctx.from.first_name;
 
     await setStatus(chatId, dateKey, ctx.from.id, userName, status);
-    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
-    const { text, keyboard } = buildDayView(dateKey, responses);
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
@@ -109,10 +128,58 @@ bot.on('callback_query:data', async (ctx) => {
     return;
   }
 
+  if (kind === 'l') {
+    const dateKey = arg;
+    if (dateKey < todayKey()) {
+      await ctx.answerCallbackQuery({ text: 'That date has passed.' });
+      return;
+    }
+
+    const prompt = await ctx.reply(
+      `📍 Reply to this message with the location for ${formatDateLong(dateKey)}`,
+      {
+        reply_markup: { force_reply: true, selective: true },
+        reply_parameters: {
+          message_id: ctx.callbackQuery.message!.message_id,
+        },
+      },
+    );
+    pendingLocationPrompts.set(ctx.from.id, {
+      chatId,
+      dateKey,
+      promptMessageId: prompt.message_id,
+      expiresAt: Date.now() + LOCATION_PROMPT_TTL_MS,
+    });
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
   await ctx.answerCallbackQuery();
 });
 
 bot.on('message:text', async (ctx) => {
+  const pending = pendingLocationPrompts.get(ctx.from.id);
+  if (
+    pending &&
+    pending.chatId === ctx.chat.id &&
+    ctx.message.reply_to_message?.message_id === pending.promptMessageId
+  ) {
+    pendingLocationPrompts.delete(ctx.from.id);
+    if (Date.now() < pending.expiresAt) {
+      const location = ctx.message.text.trim().slice(0, 200);
+      await setLocation(pending.chatId, pending.dateKey, location);
+      await ctx.reply(
+        `📍 Location for ${formatDateLong(pending.dateKey)} set to: ${location}`,
+        { reply_parameters: { message_id: ctx.message.message_id } },
+      );
+    } else {
+      await ctx.reply('That location prompt expired — tap "Set location" again.', {
+        reply_parameters: { message_id: ctx.message.message_id },
+      });
+    }
+    return;
+  }
+
   const uniqueQueries = parseQueries(ctx.message.text);
   if (uniqueQueries.length === 0) return;
 

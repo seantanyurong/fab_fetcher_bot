@@ -20,6 +20,8 @@ In any chat where the bot is present:
 
 `/calendar` posts an inline-keyboard calendar for the current month. Tap a date to open it, then tap **I'm in** / **Maybe** / **Can't make it** to record your response — everyone in the chat can see who's attending on the day view. Use `◀`/`▶` to navigate months. Past dates are locked (view-only). Requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY` to be set; without them the calendar UI still works but taps aren't saved anywhere, so it'll always show as empty.
 
+Each date also has an optional venue: tap **Set location** on the day view, then reply to the bot's prompt with the shop/venue name (e.g. "Round Table Games"). The prompt expires after 5 minutes if unanswered.
+
 ## Tech stack
 
 - **[grammY](https://grammy.dev/)** — Telegram bot framework
@@ -47,10 +49,12 @@ src/
 ├── cardvault.ts   CardVault API client, cache, request coalescing
 ├── calendar.ts    Calendar date math + inline keyboard/day-view rendering
 ├── attendance.ts  Supabase queries for /calendar responses
+├── locations.ts   Supabase queries for /calendar per-date venues
 ├── db.ts          Shared Supabase client
 └── analytics.ts   Card lookup logging (Supabase)
 sql/
-└── calendar_responses.sql   DDL for the /calendar attendance table
+├── calendar_responses.sql   DDL for the /calendar attendance table
+└── calendar_locations.sql   DDL for the /calendar per-date venue table
 scripts/
 ├── stress-test-cardvault.ts   Hits CardVault directly with concurrent requests
 └── stress-test-bot.ts         Full end-to-end test sending real messages to a test chat

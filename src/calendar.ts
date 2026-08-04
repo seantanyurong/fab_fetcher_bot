@@ -47,7 +47,7 @@ export function formatMonthLabel(monthKey: string): string {
   });
 }
 
-function formatDateLong(dateKey: string): string {
+export function formatDateLong(dateKey: string): string {
   const [year, month, day] = dateKey.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -114,10 +114,15 @@ export function buildMonthKeyboard(
 export function buildDayView(
   dateKey: string,
   responses: DayResponses,
+  location: string | null,
 ): { text: string; keyboard: InlineKeyboard } {
   const isPast = dateKey < todayKey();
 
-  const lines = [`📅 <b>${formatDateLong(dateKey)}</b>`, ''];
+  const lines = [
+    `📅 <b>${formatDateLong(dateKey)}</b>`,
+    `📍 ${location ?? 'No location set'}`,
+    '',
+  ];
   lines.push(`✅ Attending (${responses.yes.length})`);
   lines.push(responses.yes.length ? responses.yes.join(', ') : '—');
   lines.push('');
@@ -146,6 +151,7 @@ export function buildDayView(
         `cal:s:${dateKey}:n`,
       )
       .row();
+    kb.text(location ? '📍 Change location' : '📍 Set location', `cal:l:${dateKey}`).row();
   }
   kb.text('◀ Back', `cal:m:${dateKey.slice(0, 7)}`);
 
