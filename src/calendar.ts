@@ -98,7 +98,7 @@ export function buildMonthKeyboard(
   for (let day = 1; day <= totalDays; day++) {
     const dateKey = formatDateKey(year, month, day);
     const yes = counts.get(dateKey)?.yes ?? 0;
-    const label = yes > 0 ? `${day} ✅${yes}` : `${day}`;
+    const label = yes > 0 ? `${day} (${yes})` : `${day}`;
     kb.text(label, `cal:d:${dateKey}`);
     advance();
   }
