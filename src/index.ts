@@ -13,17 +13,21 @@ import {
   PROMOTED_TO_ADMIN_MESSAGE,
   RATE_LIMITED_MESSAGE,
   CALENDAR_MESSAGE,
+  SHOPS,
 } from './config.js';
 import { parseQueries, checkRateLimit } from './helpers.js';
 import { logLookup } from './analytics.js';
 import {
   todayKey,
   todayMonthKey,
+  formatDateLong,
   buildMonthKeyboard,
   buildDayView,
+  buildShopKeyboard,
 } from './calendar.js';
 import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
 import type { Status } from './attendance.js';
+import { getLocation, setLocation } from './locations.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -61,7 +65,7 @@ bot.on('callback_query:data', async (ctx) => {
     return;
   }
 
-  const [, kind, arg, statusChar] = data.split(':');
+  const [, kind, arg, extra] = data.split(':');
 
   if (kind === 'm') {
     const monthKey = arg;
@@ -75,8 +79,11 @@ bot.on('callback_query:data', async (ctx) => {
 
   if (kind === 'd') {
     const dateKey = arg;
-    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
-    const { text, keyboard } = buildDayView(dateKey, responses);
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
@@ -93,19 +100,58 @@ bot.on('callback_query:data', async (ctx) => {
     }
 
     const status: Status =
-      statusChar === 'y' ? 'yes' : statusChar === 'n' ? 'no' : 'maybe';
+      extra === 'y' ? 'yes' : extra === 'n' ? 'no' : 'maybe';
     const userName = ctx.from.username
       ? `@${ctx.from.username}`
       : ctx.from.first_name;
 
     await setStatus(chatId, dateKey, ctx.from.id, userName, status);
-    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
-    const { text, keyboard } = buildDayView(dateKey, responses);
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
     });
     await ctx.answerCallbackQuery({ text: `Marked as ${status}` });
+    return;
+  }
+
+  if (kind === 'l') {
+    const dateKey = arg;
+    if (dateKey < todayKey()) {
+      await ctx.answerCallbackQuery({ text: 'That date has passed.' });
+      return;
+    }
+
+    await ctx.editMessageText(`📍 Pick a shop for ${formatDateLong(dateKey)}`, {
+      reply_markup: buildShopKeyboard(dateKey),
+    });
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  if (kind === 'c') {
+    const dateKey = arg;
+    const shop = SHOPS[Number(extra)];
+    if (dateKey < todayKey()) {
+      await ctx.answerCallbackQuery({ text: 'That date has passed.' });
+      return;
+    }
+    if (shop) await setLocation(chatId, dateKey, shop);
+
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+    await ctx.answerCallbackQuery(shop ? { text: `Location set to ${shop}` } : undefined);
     return;
   }
 

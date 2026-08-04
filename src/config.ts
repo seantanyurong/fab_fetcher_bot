@@ -63,3 +63,6 @@ export const RATE_LIMITED_MESSAGE =
 
 export const CALENDAR_MESSAGE =
   "📅 Tap a date to mark yourself in, or see who's playing.";
+
+// Shops selectable as a date's location. Edit this list to add/remove shops.
+export const SHOPS = ['CTGH', 'PLGH', '1COL'];
