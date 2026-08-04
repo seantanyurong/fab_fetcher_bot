@@ -1,19 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SECRET_KEY;
-
-let client: SupabaseClient | null = null;
-if (url && key) {
-  client = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  console.log('Supabase analytics enabled');
-} else {
-  console.log(
-    'Supabase analytics disabled (set SUPABASE_URL and SUPABASE_SECRET_KEY to enable)',
-  );
-}
+import { supabase } from './db.js';
 
 export interface LookupEvent {
   chat_id: number;
@@ -32,7 +17,7 @@ export interface LookupEvent {
  * are logged but don't block the user reply.
  */
 export function logLookup(event: LookupEvent): void {
-  if (!client) return;
+  if (!supabase) return;
 
   const row = {
     chat_id: event.chat_id,
@@ -46,7 +31,7 @@ export function logLookup(event: LookupEvent): void {
     result_print_id: event.result_print_id ?? null,
   };
 
-  client
+  supabase
     .from('lookups')
     .insert(row)
     .then(({ error }) => {

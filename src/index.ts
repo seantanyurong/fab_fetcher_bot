@@ -12,9 +12,18 @@ import {
   ADDED_TO_GROUP_MESSAGE,
   PROMOTED_TO_ADMIN_MESSAGE,
   RATE_LIMITED_MESSAGE,
+  CALENDAR_MESSAGE,
 } from './config.js';
 import { parseQueries, checkRateLimit } from './helpers.js';
 import { logLookup } from './analytics.js';
+import {
+  todayKey,
+  todayMonthKey,
+  buildMonthKeyboard,
+  buildDayView,
+} from './calendar.js';
+import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
+import type { Status } from './attendance.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -27,6 +36,80 @@ bot.use(sequentialize((ctx) => ctx.from?.id.toString()));
 
 bot.command('start', async (ctx) => {
   await ctx.reply(START_MESSAGE, { parse_mode: 'HTML' });
+});
+
+bot.command('calendar', async (ctx) => {
+  const monthKey = todayMonthKey();
+  const counts = await getMonthCounts(ctx.chat.id, monthKey);
+  await ctx.reply(CALENDAR_MESSAGE, {
+    reply_markup: buildMonthKeyboard(monthKey, counts),
+  });
+});
+
+bot.on('callback_query:data', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  if (!data.startsWith('cal:')) return;
+
+  if (data === 'cal:x') {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  const chatId = ctx.chat?.id;
+  if (!chatId) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  const [, kind, arg, statusChar] = data.split(':');
+
+  if (kind === 'm') {
+    const monthKey = arg;
+    const counts = await getMonthCounts(chatId, monthKey);
+    await ctx.editMessageText(CALENDAR_MESSAGE, {
+      reply_markup: buildMonthKeyboard(monthKey, counts),
+    });
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  if (kind === 'd') {
+    const dateKey = arg;
+    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
+    const { text, keyboard } = buildDayView(dateKey, responses);
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  if (kind === 's') {
+    const dateKey = arg;
+    if (dateKey < todayKey()) {
+      await ctx.answerCallbackQuery({ text: 'That date has passed.' });
+      return;
+    }
+
+    const status: Status =
+      statusChar === 'y' ? 'yes' : statusChar === 'n' ? 'no' : 'maybe';
+    const userName = ctx.from.username
+      ? `@${ctx.from.username}`
+      : ctx.from.first_name;
+
+    await setStatus(chatId, dateKey, ctx.from.id, userName, status);
+    const responses = await getDayResponses(chatId, dateKey, ctx.from.id);
+    const { text, keyboard } = buildDayView(dateKey, responses);
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+    await ctx.answerCallbackQuery({ text: `Marked as ${status}` });
+    return;
+  }
+
+  await ctx.answerCallbackQuery();
 });
 
 bot.on('message:text', async (ctx) => {

@@ -16,6 +16,10 @@ In any chat where the bot is present:
 - Up to 5 cards per message; extras are dropped with a notice
 - Card lookups use fuzzy matching, with a "closest match" note shown when the typed name doesn't exactly match
 
+### Calendar attendance
+
+`/calendar` posts an inline-keyboard calendar for the current month. Tap a date to open it, then tap **I'm in** / **Maybe** / **Can't make it** to record your response — everyone in the chat can see who's attending on the day view. Use `◀`/`▶` to navigate months. Past dates are locked (view-only). Requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY` to be set; without them the calendar UI still works but taps aren't saved anywhere, so it'll always show as empty.
+
 ## Tech stack
 
 - **[grammY](https://grammy.dev/)** — Telegram bot framework
@@ -40,7 +44,13 @@ src/
 ├── index.ts       Bot setup, message handler, command handlers
 ├── config.ts      All constants and message templates
 ├── helpers.ts     Query parsing + per-user rate limiter
-└── cardvault.ts   CardVault API client, cache, request coalescing
+├── cardvault.ts   CardVault API client, cache, request coalescing
+├── calendar.ts    Calendar date math + inline keyboard/day-view rendering
+├── attendance.ts  Supabase queries for /calendar responses
+├── db.ts          Shared Supabase client
+└── analytics.ts   Card lookup logging (Supabase)
+sql/
+└── calendar_responses.sql   DDL for the /calendar attendance table
 scripts/
 ├── stress-test-cardvault.ts   Hits CardVault directly with concurrent requests
 └── stress-test-bot.ts         Full end-to-end test sending real messages to a test chat
