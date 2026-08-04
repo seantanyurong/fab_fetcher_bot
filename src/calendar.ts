@@ -1,5 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import type { DayResponses, MonthCounts } from './attendance.js';
+import { SHOPS } from './config.js';
 
 const WEEKDAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
@@ -156,4 +157,11 @@ export function buildDayView(
   kb.text('◀ Back', `cal:m:${dateKey.slice(0, 7)}`);
 
   return { text: lines.join('\n'), keyboard: kb };
+}
+
+export function buildShopKeyboard(dateKey: string): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  SHOPS.forEach((shop, i) => kb.text(shop, `cal:c:${dateKey}:${i}`).row());
+  kb.text('◀ Back', `cal:d:${dateKey}`);
+  return kb;
 }

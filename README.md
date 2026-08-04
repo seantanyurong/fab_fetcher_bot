@@ -20,7 +20,7 @@ In any chat where the bot is present:
 
 `/calendar` posts an inline-keyboard calendar for the current month. Tap a date to open it, then tap **I'm in** / **Maybe** / **Can't make it** to record your response — everyone in the chat can see who's attending on the day view. Use `◀`/`▶` to navigate months. Past dates are locked (view-only). Requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY` to be set; without them the calendar UI still works but taps aren't saved anywhere, so it'll always show as empty.
 
-Each date also has an optional venue: tap **Set location** on the day view, then reply to the bot's prompt with the shop/venue name (e.g. "Round Table Games"). The prompt expires after 5 minutes if unanswered.
+Each date also has an optional venue: tap **Set location** on the day view to pick from the shop list in `SHOPS` (`src/config.ts`) — edit that array and redeploy to add/remove shops.
 
 ## Tech stack
 

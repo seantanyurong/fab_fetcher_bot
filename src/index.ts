@@ -13,7 +13,7 @@ import {
   PROMOTED_TO_ADMIN_MESSAGE,
   RATE_LIMITED_MESSAGE,
   CALENDAR_MESSAGE,
-  LOCATION_PROMPT_TTL_MS,
+  SHOPS,
 } from './config.js';
 import { parseQueries, checkRateLimit } from './helpers.js';
 import { logLookup } from './analytics.js';
@@ -23,20 +23,11 @@ import {
   formatDateLong,
   buildMonthKeyboard,
   buildDayView,
+  buildShopKeyboard,
 } from './calendar.js';
 import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
 import type { Status } from './attendance.js';
 import { getLocation, setLocation } from './locations.js';
-
-interface PendingLocationPrompt {
-  chatId: number;
-  dateKey: string;
-  promptMessageId: number;
-  expiresAt: number;
-}
-
-// Keyed by user ID — tracks the one "set location" reply prompt a user has open
-const pendingLocationPrompts = new Map<number, PendingLocationPrompt>();
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -74,7 +65,7 @@ bot.on('callback_query:data', async (ctx) => {
     return;
   }
 
-  const [, kind, arg, statusChar] = data.split(':');
+  const [, kind, arg, extra] = data.split(':');
 
   if (kind === 'm') {
     const monthKey = arg;
@@ -109,7 +100,7 @@ bot.on('callback_query:data', async (ctx) => {
     }
 
     const status: Status =
-      statusChar === 'y' ? 'yes' : statusChar === 'n' ? 'no' : 'maybe';
+      extra === 'y' ? 'yes' : extra === 'n' ? 'no' : 'maybe';
     const userName = ctx.from.username
       ? `@${ctx.from.username}`
       : ctx.from.first_name;
@@ -135,22 +126,32 @@ bot.on('callback_query:data', async (ctx) => {
       return;
     }
 
-    const prompt = await ctx.reply(
-      `📍 Reply to this message with the location for ${formatDateLong(dateKey)}`,
-      {
-        reply_markup: { force_reply: true, selective: true },
-        reply_parameters: {
-          message_id: ctx.callbackQuery.message!.message_id,
-        },
-      },
-    );
-    pendingLocationPrompts.set(ctx.from.id, {
-      chatId,
-      dateKey,
-      promptMessageId: prompt.message_id,
-      expiresAt: Date.now() + LOCATION_PROMPT_TTL_MS,
+    await ctx.editMessageText(`📍 Pick a shop for ${formatDateLong(dateKey)}`, {
+      reply_markup: buildShopKeyboard(dateKey),
     });
     await ctx.answerCallbackQuery();
+    return;
+  }
+
+  if (kind === 'c') {
+    const dateKey = arg;
+    const shop = SHOPS[Number(extra)];
+    if (dateKey < todayKey()) {
+      await ctx.answerCallbackQuery({ text: 'That date has passed.' });
+      return;
+    }
+    if (shop) await setLocation(chatId, dateKey, shop);
+
+    const [responses, location] = await Promise.all([
+      getDayResponses(chatId, dateKey, ctx.from.id),
+      getLocation(chatId, dateKey),
+    ]);
+    const { text, keyboard } = buildDayView(dateKey, responses, location);
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+    await ctx.answerCallbackQuery(shop ? { text: `Location set to ${shop}` } : undefined);
     return;
   }
 
@@ -158,28 +159,6 @@ bot.on('callback_query:data', async (ctx) => {
 });
 
 bot.on('message:text', async (ctx) => {
-  const pending = pendingLocationPrompts.get(ctx.from.id);
-  if (
-    pending &&
-    pending.chatId === ctx.chat.id &&
-    ctx.message.reply_to_message?.message_id === pending.promptMessageId
-  ) {
-    pendingLocationPrompts.delete(ctx.from.id);
-    if (Date.now() < pending.expiresAt) {
-      const location = ctx.message.text.trim().slice(0, 200);
-      await setLocation(pending.chatId, pending.dateKey, location);
-      await ctx.reply(
-        `📍 Location for ${formatDateLong(pending.dateKey)} set to: ${location}`,
-        { reply_parameters: { message_id: ctx.message.message_id } },
-      );
-    } else {
-      await ctx.reply('That location prompt expired — tap "Set location" again.', {
-        reply_parameters: { message_id: ctx.message.message_id },
-      });
-    }
-    return;
-  }
-
   const uniqueQueries = parseQueries(ctx.message.text);
   if (uniqueQueries.length === 0) return;
 
