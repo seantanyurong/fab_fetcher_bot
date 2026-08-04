@@ -12,3 +12,8 @@ create table if not exists calendar_responses (
 
 create index if not exists calendar_responses_chat_date_idx
   on calendar_responses (chat_id, date);
+
+-- No policies defined on purpose: only the server-side client (using the
+-- service role key, which bypasses RLS) should ever read or write this
+-- table. anon/authenticated keys get denied by default.
+alter table calendar_responses enable row level security;
