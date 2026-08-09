@@ -148,7 +148,7 @@ export function buildDayView(
         `cal:s:${dateKey}:m`,
       )
       .text(
-        responses.myStatus === 'no' ? "❌ Can't make it ✓" : "❌ Can't make it",
+        responses.myStatus === 'no' ? '❌ CMI ✓' : '❌ CMI',
         `cal:s:${dateKey}:n`,
       )
       .row();
