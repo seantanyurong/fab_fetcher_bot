@@ -9,8 +9,10 @@ import {
   DECKLIST_BASE_URL,
   DECKLIST_URL,
   DECKLIST_CACHE_TTL_MS,
+  DECKLIST_HERO_LIST_CACHE_TTL_MS,
   DECKLIST_TIMEOUT_MS,
   DECKLIST_DEFAULT_NUM,
+  DECKLIST_FORMAT,
 } from './config.js';
 
 const execFileAsync = promisify(execFile);
@@ -27,6 +29,24 @@ const USER_AGENT =
 // bare decklists root, /<lang>/decklists/, or /decklists/feed/.
 const RESULT_LINK_PATTERN = /^\/decklists\/([^/]+)\/?$/;
 
+export class HeroNotFoundError extends Error {
+  constructor(public readonly query: string) {
+    super(`No hero found matching "${query}"`);
+    this.name = 'HeroNotFoundError';
+  }
+}
+
+export interface Decklist {
+  text: string;
+  url: string;
+}
+
+export interface DecklistSearch {
+  hero: string;
+  fuzzy: boolean;
+  decklists: Decklist[];
+}
+
 interface CacheEntry {
   result: Decklist[];
   expiresAt: number;
@@ -34,34 +54,87 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-export interface Decklist {
-  text: string;
-  url: string;
-}
-
-function cacheKey(heroName: string, num: number): string {
-  return `${heroName.toLowerCase()}|${num}`;
-}
+let heroListCache: { heroes: string[]; expiresAt: number } | null = null;
 
 export async function getDecklists(
-  heroName: string,
+  heroQuery: string,
   num: number = DECKLIST_DEFAULT_NUM,
-): Promise<Decklist[]> {
-  const key = cacheKey(heroName, num);
+): Promise<DecklistSearch> {
+  const resolved = await resolveHero(heroQuery);
+  if (!resolved) throw new HeroNotFoundError(heroQuery);
+
+  const key = `${resolved.hero.toLowerCase()}|${num}`;
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { hero: resolved.hero, fuzzy: resolved.fuzzy, decklists: cached.result };
+  }
 
-  const html = await fetchDecklistsHtml(heroName);
-  const result = extractDecklists(html).slice(0, num);
+  const html = await fetchDecklistsHtml(resolved.hero);
+  const decklists = extractDecklists(html).slice(0, num);
 
-  cache.set(key, { result, expiresAt: Date.now() + DECKLIST_CACHE_TTL_MS });
-  return result;
+  cache.set(key, {
+    result: decklists,
+    expiresAt: Date.now() + DECKLIST_CACHE_TTL_MS,
+  });
+  return { hero: resolved.hero, fuzzy: resolved.fuzzy, decklists };
+}
+
+// decklist_hero is a fixed <select> on the site, not a search box — an exact
+// string match is required. Fuzzy-resolve the user's query against the real
+// option list the same way CardVault lookups fuzzy-match card names.
+async function resolveHero(
+  query: string,
+): Promise<{ hero: string; fuzzy: boolean } | null> {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+
+  const heroes = await getHeroList();
+
+  const exact = heroes.find((h) => h.toLowerCase() === q);
+  if (exact) return { hero: exact, fuzzy: false };
+
+  const startsWith = heroes.find((h) => h.toLowerCase().startsWith(q));
+  if (startsWith) return { hero: startsWith, fuzzy: true };
+
+  const includes = heroes.find((h) => h.toLowerCase().includes(q));
+  if (includes) return { hero: includes, fuzzy: true };
+
+  return null;
+}
+
+async function getHeroList(): Promise<string[]> {
+  if (heroListCache && heroListCache.expiresAt > Date.now()) {
+    return heroListCache.heroes;
+  }
+
+  const html = await curlGetWithSession(DECKLIST_URL);
+  const $ = cheerio.load(html);
+  const heroes: string[] = [];
+  $('#hero-filter option').each((_, el) => {
+    const value = $(el).attr('value')?.trim();
+    if (value) heroes.push(value);
+  });
+
+  heroListCache = {
+    heroes,
+    expiresAt: Date.now() + DECKLIST_HERO_LIST_CACHE_TTL_MS,
+  };
+  return heroes;
+}
+
+async function fetchDecklistsHtml(hero: string): Promise<string> {
+  const params = new URLSearchParams({
+    decklist_format: DECKLIST_FORMAT,
+    decklist_hero: hero,
+    decklist_event: '',
+  });
+  return curlGetWithSession(DECKLIST_URL, params);
 }
 
 // fabtcg.com sits behind a WAF that blocks Node's native fetch (undici) at
 // the TLS-fingerprint level — same headers/cookies, but fetch gets a bare
 // 403 where curl gets a normal 200. Shelling out to curl (via execFile, so
-// heroName is passed as a literal argv value — never shell-interpreted)
+// query values are passed as literal argv values — never shell-interpreted)
 // routes around that.
 async function curlRequest(args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('curl', args, {
@@ -71,7 +144,10 @@ async function curlRequest(args: string[]): Promise<string> {
   return stdout;
 }
 
-async function fetchDecklistsHtml(heroName: string): Promise<string> {
+async function curlGetWithSession(
+  url: string,
+  params?: URLSearchParams,
+): Promise<string> {
   const jar = join(tmpdir(), `decklist-cookies-${randomUUID()}.txt`);
   const commonArgs = [
     '-sS',
@@ -94,18 +170,18 @@ async function fetchDecklistsHtml(heroName: string): Promise<string> {
       DECKLIST_BASE_URL,
     ]);
 
+    const paramArgs: string[] = [];
+    for (const [k, v] of params ?? []) {
+      paramArgs.push('--data-urlencode', `${k}=${v}`);
+    }
+
     return await curlRequest([
       ...commonArgs,
       '--cookie',
       jar,
       '-G',
-      DECKLIST_URL,
-      '--data-urlencode',
-      'decklist_format=Classic Constructed',
-      '--data-urlencode',
-      `decklist_hero=${heroName}`,
-      '--data-urlencode',
-      'decklist_event=',
+      url,
+      ...paramArgs,
     ]);
   } finally {
     await unlink(jar).catch(() => {});
