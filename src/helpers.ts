@@ -6,6 +6,10 @@ import {
   RATE_WINDOW_MS,
 } from './config.js';
 
+export function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export interface CardQuery {
   name: string;
   pitch?: number;
