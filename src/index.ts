@@ -14,8 +14,6 @@ import {
   RATE_LIMITED_MESSAGE,
   CALENDAR_MESSAGE,
   SHOPS,
-  DECKLIST_DEFAULT_FORMAT,
-  DECKLIST_FORMATS,
 } from './config.js';
 import { parseQueries, checkRateLimit, escapeHtml } from './helpers.js';
 import { logLookup } from './analytics.js';
@@ -30,7 +28,7 @@ import {
 import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
 import type { Status } from './attendance.js';
 import { getLocation, setLocation } from './locations.js';
-import { getDecklists } from './decklists.js';
+import { getDecklists, HeroNotFoundError } from './decklists.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -54,51 +52,30 @@ bot.command('calendar', async (ctx) => {
 });
 
 const DECKLIST_USAGE =
-  'Usage: <code>/decklist &lt;hero name&gt; [| format]</code>\n' +
+  'Usage: <code>/decklist &lt;hero name&gt;</code>\n' +
   'e.g. <code>/decklist Ira, Scarlet Revenger</code>\n' +
-  'e.g. <code>/decklist Ira, Scarlet Revenger | Blitz</code>\n\n' +
-  `Formats: ${DECKLIST_FORMATS.join(', ')}`;
+  'e.g. <code>/decklist ira</code> (fuzzy-matches the closest hero)';
 
 bot.command('decklist', async (ctx) => {
-  const raw = ctx.match.trim();
-  if (!raw) {
+  const heroQuery = ctx.match.trim();
+  if (!heroQuery) {
     await ctx.reply(DECKLIST_USAGE, { parse_mode: 'HTML' });
     return;
-  }
-
-  const [heroName, formatArg] = raw.split('|').map((part) => part.trim());
-  if (!heroName) {
-    await ctx.reply(DECKLIST_USAGE, { parse_mode: 'HTML' });
-    return;
-  }
-
-  let format = DECKLIST_DEFAULT_FORMAT;
-  if (formatArg) {
-    const matched = DECKLIST_FORMATS.find(
-      (f) => f.toLowerCase() === formatArg.toLowerCase(),
-    );
-    if (!matched) {
-      await ctx.reply(
-        `Unknown format "${escapeHtml(formatArg)}".\n\n${DECKLIST_USAGE}`,
-        { parse_mode: 'HTML' },
-      );
-      return;
-    }
-    format = matched;
   }
 
   try {
-    const decklists = await getDecklists(heroName, undefined, format);
+    const { hero, fuzzy, decklists } = await getDecklists(heroQuery);
     if (decklists.length === 0) {
-      await ctx.reply(
-        `No ${escapeHtml(format)} decklists found for "${escapeHtml(heroName)}".`,
-        { parse_mode: 'HTML' },
-      );
+      await ctx.reply(`No decklists found for "${escapeHtml(hero)}".`, {
+        parse_mode: 'HTML',
+      });
       return;
     }
 
     const lines = [
-      `<b>Top ${decklists.length} ${escapeHtml(format)} decklists for ${escapeHtml(heroName)}</b>`,
+      (fuzzy
+        ? `<i>Closest hero match for "${escapeHtml(heroQuery)}":</i>\n`
+        : '') + `<b>Top ${decklists.length} decklists for ${escapeHtml(hero)}</b>`,
       ...decklists.map(
         (d, i) =>
           `${i + 1}. <a href="${escapeHtml(d.url)}">${escapeHtml(d.text) || 'Decklist'}</a>`,
@@ -106,7 +83,13 @@ bot.command('decklist', async (ctx) => {
     ];
     await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
   } catch (err) {
-    console.error(`Failed to fetch decklists for "${heroName}" (${format}):`, err);
+    if (err instanceof HeroNotFoundError) {
+      await ctx.reply(
+        `No hero found matching "${escapeHtml(heroQuery)}". Try the full hero name.`,
+      );
+      return;
+    }
+    console.error(`Failed to fetch decklists for "${heroQuery}":`, err);
     await ctx.reply('Something went wrong fetching decklists — try again later.');
   }
 });
