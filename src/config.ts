@@ -12,6 +12,21 @@ export const DECKLIST_URL = 'https://fabtcg.com/decklists/';
 export const DECKLIST_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const DECKLIST_TIMEOUT_MS = 15000;
 export const DECKLIST_DEFAULT_NUM = 3;
+export const DECKLIST_DEFAULT_FORMAT = 'Classic Constructed';
+// Options from the decklist_format <select> on fabtcg.com/decklists/
+export const DECKLIST_FORMATS = [
+  'Blitz',
+  'Blitz Preconstructed',
+  'Booster Draft',
+  'Classic Constructed',
+  'Commoner',
+  'Ira - Learn to Play',
+  'Living Legend',
+  'Project Blue',
+  'Sealed Deck',
+  'Silver Age',
+  'Ultimate Pit Fight',
+];
 
 // Regex patterns for parsing card queries
 export const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;

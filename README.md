@@ -24,7 +24,7 @@ Each date also has an optional venue: tap **Set location** on the day view to pi
 
 ### Decklists
 
-`/decklist <hero name>` (e.g. `/decklist Ira, Scarlet Revenger`) scrapes fabtcg.com's decklists page and replies with the 3 most recent Classic Constructed decklists for that hero, linked directly. Results are cached for 1 hour per hero.
+`/decklist <hero name>` (e.g. `/decklist Ira, Scarlet Revenger`) scrapes fabtcg.com's decklists page and replies with the 3 most recent Classic Constructed decklists for that hero, linked directly. Add `| <format>` to query a different format, e.g. `/decklist Dorinthea Ironsong | Blitz` — run `/decklist` with no arguments to see the full list of formats. Results are cached for 1 hour per (hero, format).
 
 fabtcg.com sits behind a WAF that blocks Node's native `fetch` at the TLS-fingerprint level (identical headers, but `fetch` gets 403 where `curl` gets 200), so this shells out to `curl` instead — see `src/decklists.ts`. `curl` needs to be present on the deploy target; `nixpacks.toml` installs it explicitly for Railway.
 

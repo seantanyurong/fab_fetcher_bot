@@ -11,6 +11,7 @@ import {
   DECKLIST_CACHE_TTL_MS,
   DECKLIST_TIMEOUT_MS,
   DECKLIST_DEFAULT_NUM,
+  DECKLIST_DEFAULT_FORMAT,
 } from './config.js';
 
 const execFileAsync = promisify(execFile);
@@ -39,19 +40,20 @@ export interface Decklist {
   url: string;
 }
 
-function cacheKey(heroName: string, num: number): string {
-  return `${heroName.toLowerCase()}|${num}`;
+function cacheKey(heroName: string, num: number, format: string): string {
+  return `${heroName.toLowerCase()}|${num}|${format.toLowerCase()}`;
 }
 
 export async function getDecklists(
   heroName: string,
   num: number = DECKLIST_DEFAULT_NUM,
+  format: string = DECKLIST_DEFAULT_FORMAT,
 ): Promise<Decklist[]> {
-  const key = cacheKey(heroName, num);
+  const key = cacheKey(heroName, num, format);
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.result;
 
-  const html = await fetchDecklistsHtml(heroName);
+  const html = await fetchDecklistsHtml(heroName, format);
   const result = extractDecklists(html).slice(0, num);
 
   cache.set(key, { result, expiresAt: Date.now() + DECKLIST_CACHE_TTL_MS });
@@ -71,7 +73,10 @@ async function curlRequest(args: string[]): Promise<string> {
   return stdout;
 }
 
-async function fetchDecklistsHtml(heroName: string): Promise<string> {
+async function fetchDecklistsHtml(
+  heroName: string,
+  format: string,
+): Promise<string> {
   const jar = join(tmpdir(), `decklist-cookies-${randomUUID()}.txt`);
   const commonArgs = [
     '-sS',
@@ -101,7 +106,7 @@ async function fetchDecklistsHtml(heroName: string): Promise<string> {
       '-G',
       DECKLIST_URL,
       '--data-urlencode',
-      'decklist_format=Classic Constructed',
+      `decklist_format=${format}`,
       '--data-urlencode',
       `decklist_hero=${heroName}`,
       '--data-urlencode',

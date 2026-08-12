@@ -14,6 +14,8 @@ import {
   RATE_LIMITED_MESSAGE,
   CALENDAR_MESSAGE,
   SHOPS,
+  DECKLIST_DEFAULT_FORMAT,
+  DECKLIST_FORMATS,
 } from './config.js';
 import { parseQueries, checkRateLimit, escapeHtml } from './helpers.js';
 import { logLookup } from './analytics.js';
@@ -51,27 +53,52 @@ bot.command('calendar', async (ctx) => {
   });
 });
 
+const DECKLIST_USAGE =
+  'Usage: <code>/decklist &lt;hero name&gt; [| format]</code>\n' +
+  'e.g. <code>/decklist Ira, Scarlet Revenger</code>\n' +
+  'e.g. <code>/decklist Ira, Scarlet Revenger | Blitz</code>\n\n' +
+  `Formats: ${DECKLIST_FORMATS.join(', ')}`;
+
 bot.command('decklist', async (ctx) => {
-  const heroName = ctx.match.trim();
-  if (!heroName) {
-    await ctx.reply(
-      'Usage: <code>/decklist &lt;hero name&gt;</code>\ne.g. <code>/decklist Ira, Scarlet Revenger</code>',
-      { parse_mode: 'HTML' },
-    );
+  const raw = ctx.match.trim();
+  if (!raw) {
+    await ctx.reply(DECKLIST_USAGE, { parse_mode: 'HTML' });
     return;
   }
 
+  const [heroName, formatArg] = raw.split('|').map((part) => part.trim());
+  if (!heroName) {
+    await ctx.reply(DECKLIST_USAGE, { parse_mode: 'HTML' });
+    return;
+  }
+
+  let format = DECKLIST_DEFAULT_FORMAT;
+  if (formatArg) {
+    const matched = DECKLIST_FORMATS.find(
+      (f) => f.toLowerCase() === formatArg.toLowerCase(),
+    );
+    if (!matched) {
+      await ctx.reply(
+        `Unknown format "${escapeHtml(formatArg)}".\n\n${DECKLIST_USAGE}`,
+        { parse_mode: 'HTML' },
+      );
+      return;
+    }
+    format = matched;
+  }
+
   try {
-    const decklists = await getDecklists(heroName);
+    const decklists = await getDecklists(heroName, undefined, format);
     if (decklists.length === 0) {
-      await ctx.reply(`No decklists found for "${escapeHtml(heroName)}".`, {
-        parse_mode: 'HTML',
-      });
+      await ctx.reply(
+        `No ${escapeHtml(format)} decklists found for "${escapeHtml(heroName)}".`,
+        { parse_mode: 'HTML' },
+      );
       return;
     }
 
     const lines = [
-      `<b>Top ${decklists.length} decklists for ${escapeHtml(heroName)}</b>`,
+      `<b>Top ${decklists.length} ${escapeHtml(format)} decklists for ${escapeHtml(heroName)}</b>`,
       ...decklists.map(
         (d, i) =>
           `${i + 1}. <a href="${escapeHtml(d.url)}">${escapeHtml(d.text) || 'Decklist'}</a>`,
@@ -79,7 +106,7 @@ bot.command('decklist', async (ctx) => {
     ];
     await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
   } catch (err) {
-    console.error(`Failed to fetch decklists for "${heroName}":`, err);
+    console.error(`Failed to fetch decklists for "${heroName}" (${format}):`, err);
     await ctx.reply('Something went wrong fetching decklists — try again later.');
   }
 });
