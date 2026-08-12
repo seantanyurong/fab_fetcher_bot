@@ -26,7 +26,7 @@ Each date also has an optional venue: tap **Set location** on the day view to pi
 
 `/decklist <hero name>` (e.g. `/decklist Ira, Scarlet Revenger`) scrapes fabtcg.com's decklists page and replies with the 3 most recent Classic Constructed decklists for that hero, linked directly. Hero name is fuzzy-matched against the real hero list (like card lookups) — `/decklist ira` resolves to the closest hero and says so ("Closest hero match for..."). An unmatchable name gets a "no hero found" reply instead of an error. Results are cached for 1 hour per hero; the hero list itself is cached for 1 day.
 
-fabtcg.com sits behind a WAF that blocks Node's native `fetch` at the TLS-fingerprint level (identical headers, but `fetch` gets 403 where `curl` gets 200), so this shells out to `curl` instead — see `src/decklists.ts`. `curl` needs to be present on the deploy target; `nixpacks.toml` installs it explicitly for Railway (using the `"..."` merge syntax so it extends rather than replaces the auto-detected Node packages).
+fabtcg.com sits behind a WAF that blocks Node's native `fetch` at the TLS-fingerprint level (identical headers, but `fetch` gets 403 where `curl` gets 200 — even purpose-built anti-detection HTTP clients like `got-scraping` still get 403, so this isn't fixable from pure Node/npm), so this shells out to `curl` instead — see `src/decklists.ts`. `curl` needs to be present in the **deployed** container (it's called at runtime, not build time); `railpack.json`'s `deploy.aptPackages` installs it for Railway, which builds this project with Railpack, not Nixpacks.
 
 ## Tech stack
 
@@ -138,7 +138,7 @@ A healthy run completes with zero failures and zero 429s, proving the throttler 
 1. Push to GitHub
 2. Connect repo on Railway
 3. Set `BOT_TOKEN` as an environment variable
-4. Railway picks up `nixpacks.toml` for build/start
+4. Railway builds with Railpack and auto-detects Node; `railpack.json` adds `curl` to the deployed image (needed by `src/decklists.ts`)
 
 `SIGTERM` handling lets in-flight lookups finish during redeploys instead of being killed mid-reply.
 
