@@ -6,6 +6,13 @@ export const CARDVAULT_MAX_CONCURRENT = 10;
 export const CARDVAULT_MIN_TIME_MS = 100; // min gap between CardVault requests (~10 req/sec)
 export const CARDVAULT_TIMEOUT_MS = 10000;
 
+// fabtcg.com decklists page (scraped — no public API)
+export const DECKLIST_BASE_URL = 'https://fabtcg.com/';
+export const DECKLIST_URL = 'https://fabtcg.com/decklists/';
+export const DECKLIST_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+export const DECKLIST_TIMEOUT_MS = 15000;
+export const DECKLIST_DEFAULT_NUM = 3;
+
 // Regex patterns for parsing card queries
 export const CARD_PATTERN = /\[\[([^\]]+)\]\]/g;
 export const PITCH_PATTERN = /\bp:([0123])\b/i;
@@ -29,7 +36,9 @@ const SYNTAX_BLOCK =
   '1. Basic: <code>[[Rhinar]]</code>\n' +
   '2. Pitch: <code>[[Zero to Sixty p:1]]</code>\n\n' +
   '<b>Calendar</b>\n' +
-  "Use /calendar to mark game days and see who's playing.";
+  "Use /calendar to mark game days and see who's playing.\n\n" +
+  '<b>Decklists</b>\n' +
+  'Use <code>/decklist &lt;hero name&gt;</code> to pull recent tournament decklists.';
 
 const SUPPORT_LINE =
   'If you encounter any bugs, feel free to message @seanyouwrong';

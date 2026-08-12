@@ -22,10 +22,17 @@ In any chat where the bot is present:
 
 Each date also has an optional venue: tap **Set location** on the day view to pick from the shop list in `SHOPS` (`src/config.ts`) — edit that array and redeploy to add/remove shops.
 
+### Decklists
+
+`/decklist <hero name>` (e.g. `/decklist Ira, Scarlet Revenger`) scrapes fabtcg.com's decklists page and replies with the 3 most recent Classic Constructed decklists for that hero, linked directly. Results are cached for 1 hour per hero.
+
+fabtcg.com sits behind a WAF that blocks Node's native `fetch` at the TLS-fingerprint level (identical headers, but `fetch` gets 403 where `curl` gets 200), so this shells out to `curl` instead — see `src/decklists.ts`. `curl` needs to be present on the deploy target; `nixpacks.toml` installs it explicitly for Railway.
+
 ## Tech stack
 
 - **[grammY](https://grammy.dev/)** — Telegram bot framework
 - **[CardVault API](https://api.cardvault.fabtcg.com/carddb/api/v1/)** — unofficial FAB card data + images
+- **[cheerio](https://cheerio.js.org/)** — HTML parsing for the decklist scraper
 - **TypeScript / Node.js 22** — runtime
 - **Railway** — deployment
 
@@ -50,6 +57,7 @@ src/
 ├── calendar.ts    Calendar date math + inline keyboard/day-view rendering
 ├── attendance.ts  Supabase queries for /calendar responses
 ├── locations.ts   Supabase queries for /calendar per-date venues
+├── decklists.ts   fabtcg.com decklist scraper (curl + cheerio), cached
 ├── db.ts          Shared Supabase client
 └── analytics.ts   Card lookup logging (Supabase)
 sql/

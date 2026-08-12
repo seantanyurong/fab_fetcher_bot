@@ -15,7 +15,7 @@ import {
   CALENDAR_MESSAGE,
   SHOPS,
 } from './config.js';
-import { parseQueries, checkRateLimit } from './helpers.js';
+import { parseQueries, checkRateLimit, escapeHtml } from './helpers.js';
 import { logLookup } from './analytics.js';
 import {
   todayKey,
@@ -28,6 +28,7 @@ import {
 import { getMonthCounts, getDayResponses, setStatus } from './attendance.js';
 import type { Status } from './attendance.js';
 import { getLocation, setLocation } from './locations.js';
+import { getDecklists } from './decklists.js';
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error('BOT_TOKEN environment variable is required');
@@ -48,6 +49,39 @@ bot.command('calendar', async (ctx) => {
   await ctx.reply(CALENDAR_MESSAGE, {
     reply_markup: buildMonthKeyboard(monthKey, counts),
   });
+});
+
+bot.command('decklist', async (ctx) => {
+  const heroName = ctx.match.trim();
+  if (!heroName) {
+    await ctx.reply(
+      'Usage: <code>/decklist &lt;hero name&gt;</code>\ne.g. <code>/decklist Ira, Scarlet Revenger</code>',
+      { parse_mode: 'HTML' },
+    );
+    return;
+  }
+
+  try {
+    const decklists = await getDecklists(heroName);
+    if (decklists.length === 0) {
+      await ctx.reply(`No decklists found for "${escapeHtml(heroName)}".`, {
+        parse_mode: 'HTML',
+      });
+      return;
+    }
+
+    const lines = [
+      `<b>Top ${decklists.length} decklists for ${escapeHtml(heroName)}</b>`,
+      ...decklists.map(
+        (d, i) =>
+          `${i + 1}. <a href="${escapeHtml(d.url)}">${escapeHtml(d.text) || 'Decklist'}</a>`,
+      ),
+    ];
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
+  } catch (err) {
+    console.error(`Failed to fetch decklists for "${heroName}":`, err);
+    await ctx.reply('Something went wrong fetching decklists — try again later.');
+  }
 });
 
 bot.on('callback_query:data', async (ctx) => {
