@@ -15,17 +15,12 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+// The only header the WAF actually checks — curl's default UA (curl/x.x)
+// gets a bare 403; a browser-style one is all it takes to pass. Verified
+// live that Accept/Accept-Language/Referer make no difference either way.
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
-
-const REQUEST_HEADERS = {
-  'User-Agent': USER_AGENT,
-  Accept:
-    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-  Referer: DECKLIST_URL,
-};
 
 // Result-detail links look like /decklists/<slug>/ — a single, non-empty
 // path segment. Nav/filter/pagination links on the same page are either the
@@ -85,12 +80,6 @@ async function fetchDecklistsHtml(heroName: string): Promise<string> {
     String(DECKLIST_TIMEOUT_MS / 1000),
     '-A',
     USER_AGENT,
-    '-H',
-    `Accept: ${REQUEST_HEADERS.Accept}`,
-    '-H',
-    `Accept-Language: ${REQUEST_HEADERS['Accept-Language']}`,
-    '-H',
-    `Referer: ${REQUEST_HEADERS.Referer}`,
   ];
 
   try {
