@@ -42,8 +42,8 @@ function firstWeekdayOfMonth(year: number, month: number): number {
 export function formatMonthLabel(monthKey: string): string {
   const { year, month } = parseMonthKey(monthKey);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
+    month: 'short',
+    year: '2-digit',
     timeZone: 'UTC',
   });
 }
